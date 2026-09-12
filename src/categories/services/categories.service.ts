@@ -17,11 +17,27 @@ export class CategoriesService {
     private readonly categoriesRepository: Repository<Category>,
   ) {}
 
-  async findAll(): Promise<Category[]> {
-    return this.categoriesRepository.find({
+  async findAll(includeInactive = false): Promise<Category[]> {
+    const categories = await this.categoriesRepository.find({
       relations: {
         parent: true,
       },
+    });
+    if (includeInactive) return categories;
+    const byId = new Map(
+      categories.map((category) => [category.categoryID, category]),
+    );
+    return categories.filter((category) => {
+      let current: Category | undefined = category;
+      const visited = new Set<string>();
+      while (current) {
+        if (!current.isActive || visited.has(current.categoryID)) return false;
+        visited.add(current.categoryID);
+        current = current.parent
+          ? byId.get(current.parent.categoryID)
+          : undefined;
+      }
+      return true;
     });
   }
 
@@ -66,9 +82,7 @@ export class CategoriesService {
       updateCategoryDto.parentID &&
       updateCategoryDto.parentID === categoryID
     ) {
-      throw new BadRequestException(
-        'A category cannot be its own parent',
-      );
+      throw new BadRequestException('A category cannot be its own parent');
     }
 
     if (updateCategoryDto.name !== undefined) {
@@ -80,9 +94,7 @@ export class CategoriesService {
     }
 
     if (updateCategoryDto.parentID !== undefined) {
-      category.parent = await this.findById(
-        updateCategoryDto.parentID,
-      );
+      category.parent = await this.findById(updateCategoryDto.parentID);
     }
 
     return this.categoriesRepository.save(category);
