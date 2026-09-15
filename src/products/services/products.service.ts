@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, QueryFailedError, Repository, type DeepPartial } from 'typeorm';
+import {
+  EntityManager,
+  In,
+  QueryFailedError,
+  Repository,
+  type DeepPartial,
+} from 'typeorm';
 
 import { CategoriesService } from '../../categories/services/categories.service';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -59,6 +65,37 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  // Batch catalog reads avoid one query per cart item. Reuse the caller's
+  // transaction for both product and category reads to avoid pool starvation.
+  async findForCart(
+    productIDs: string[],
+    manager?: EntityManager,
+  ): Promise<Map<string, { product: Product; isAvailable: boolean }>> {
+    if (productIDs.length === 0) return new Map();
+    const repository =
+      manager?.getRepository(Product) ?? this.productsRepository;
+    const products = await repository.find({
+      where: { productID: In(productIDs) },
+      relations: { category: true },
+    });
+    const visibleCategories = new Set(
+      (await this.categoriesService.findAll(false, manager)).map(
+        (category) => category.categoryID,
+      ),
+    );
+    return new Map(
+      products.map((product) => [
+        product.productID,
+        {
+          product,
+          isAvailable:
+            product.isActive &&
+            visibleCategories.has(product.category.categoryID),
+        },
+      ]),
+    );
   }
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
