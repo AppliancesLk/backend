@@ -10,6 +10,7 @@ export interface CheckoutSummaryDto {
     productId: string;
     name: string;
     SKU: string;
+    images: string[];
     quantity: number;
     unitPrice: string;
     lineTotal: string;
