@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { formatMinorUnits, toMinorUnits } from '../../common/utils/money';
 import { ProductsService } from '../../products/services/products.service';
 import { AddCartItemDto } from '../dto/add-cart-item.dto';
 import { CartResponseDto } from '../dto/cart-response.dto';
@@ -21,17 +22,21 @@ export class CartService {
     private readonly productsService: ProductsService,
   ) {}
 
-  async getCurrentCart(userId: string): Promise<CartResponseDto> {
-    // Reads do not create a cart. Lock an existing cart until its items are read,
-    // so a concurrent mutation cannot return a partially changed cart.
+  async getCurrentCart(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<CartResponseDto> {
+    const read = async (transaction: EntityManager) => {
+      const cart = await transaction.findOne(Cart, {
+        where: { userId },
+        lock: { mode: 'pessimistic_read' },
+      });
+      return this.response(transaction, cart);
+    };
+    // Checkout can supply its own snapshot without opening a nested transaction.
+    // Standalone Cart reads retain their existing transaction/locking behavior.
     return this.observed('read', userId, () =>
-      this.dataSource.transaction(async (manager) => {
-        const cart = await manager.findOne(Cart, {
-          where: { userId },
-          lock: { mode: 'pessimistic_read' },
-        });
-        return this.response(manager, cart);
-      }),
+      manager ? read(manager) : this.dataSource.transaction(read),
     );
   }
 
@@ -177,8 +182,7 @@ export class CartService {
       const { product, isAvailable } = entry;
       // PostgreSQL numeric values are decimal strings. Use integer minor units
       // for exact totals, including values beyond Number.MAX_SAFE_INTEGER.
-      const [whole, fraction = ''] = String(product.price).split('.');
-      const price = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, '0'));
+      const price = toMinorUnits(product.price);
       const total = price * BigInt(item.quantity);
       subtotal += total;
       return {
@@ -190,8 +194,8 @@ export class CartService {
         quantity: item.quantity,
         stockQty: product.stockQty,
         isAvailable: isAvailable && item.quantity <= product.stockQty,
-        unitPrice: this.money(price),
-        lineTotal: this.money(total),
+        unitPrice: formatMinorUnits(price),
+        lineTotal: formatMinorUnits(total),
       };
     });
     return {
@@ -199,12 +203,8 @@ export class CartService {
       currency: 'LKR',
       items,
       itemCount: items.length,
-      subtotal: this.money(subtotal),
+      subtotal: formatMinorUnits(subtotal),
     };
-  }
-
-  private money(cents: bigint): string {
-    return `${cents / 100n}.${String(cents % 100n).padStart(2, '0')}`;
   }
 
   private async observed(
