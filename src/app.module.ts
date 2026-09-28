@@ -8,6 +8,7 @@ import { getDatabaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { OrdersModule } from './orders/orders.module';
 import { CheckoutModule } from './checkout/checkout.module';
 import { CartModule } from './cart/cart.module';
 import { ProductsModule } from './products/products.module';
@@ -32,6 +33,7 @@ import { ProductsModule } from './products/products.module';
     ProductsModule,
     CartModule,
     CheckoutModule,
+    OrdersModule,
   ],
 
   controllers: [AppController],
