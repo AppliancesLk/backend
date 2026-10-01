@@ -1,4 +1,4 @@
-# Order foundation API
+# Customer Orders API
 
 Orders are created and retrieved only by their authenticated CUSTOMER owner.
 The module reuses existing cookie sessions through JwtAuthGuard/RolesGuard;
@@ -118,14 +118,47 @@ are translated to a safe generic 500 before Nest's default logging handler.
 
 `GET /orders/:id` returns HTTP 200 with the same saved response. Authentication
 and CUSTOMER role are required. Both unknown IDs and another customer's order
-return 404. This is a single-order foundation endpoint; listing/history UI,
-admin management, payment, and status mutation APIs are not part of this ticket.
+return 404. Invalid UUIDs return 400. The response includes all stored OrderItems, quantities,
+purchase-time decimal prices, totals, delivery information and current status.
 
-## Status foundation
+## List owned orders
+
+`GET /orders` returns HTTP 200 with an array of the order response above (or `[]`
+when there are no orders). Authentication and CUSTOMER role are required. No body
+or query parameters are required. Identity is taken only from the authenticated
+session; customer IDs supplied in a query cannot change the owner scope.
+Orders are sorted by createdAt descending, then ID descending for stable ties.
+Each order includes its stored item snapshots; current product data is not joined.
+This initial list is unpaginated, consistent with the existing stage-one APIs.
+
+## Read current status
+
+`GET /orders/:id/status` requires authentication and CUSTOMER role and returns 200:
+
+```json
+{
+  "id": "<order-uuid>",
+  "status": "PENDING_PAYMENT",
+  "updatedAt": "2026-10-17T10:00:00.000Z"
+}
+```
+
+No body or query parameters are required. Status is read from the stored order on
+every request without loading items or delivery data. Unknown and unowned UUIDs
+both return the same 404 `Order not found`; malformed UUIDs return 400. Missing,
+invalid or revoked sessions return 401; other authenticated roles return 403.
+All read endpoints use the existing JwtAuthGuard and session-cookie authentication.
+Unexpected retrieval failures log only operation/resource IDs and a safe status,
+and return a generic 500 without raw database errors or delivery data.
+
+Customer Orders UI, admin management, payment and status mutation remain outside
+this ticket. No schema migration is required for these read APIs.
+
+## Shared order status
 
 The PostgreSQL/TypeScript enum provides PENDING_PAYMENT (creation default),
-CONFIRMED, PROCESSING, SHIPPED, DELIVERED, and CANCELLED. Only creation/default
-is implemented here. No status can be supplied by the client, and transitions
+CONFIRMED, PROCESSING, SHIPPED, DELIVERED, and CANCELLED. Read APIs return these same canonical values. Only creation/default
+and retrieval are implemented here. No status can be supplied by the client, and transitions
 will be defined and authorized in the later Order Status task.
 
 ## HTTP failures
@@ -165,3 +198,7 @@ Migration up/down/reapply and database constraints run in a separate temporary
 schema inside a rolled-back transaction, without dropping application tables.
 The down migration drops order tables and their contents; it is not run against
 real order data during these tests.
+
+Retrieval coverage includes empty history, newest-first ordering, owner isolation,
+all shared status values, snapshot preservation, authentication/RBAC, invalid IDs,
+revoked sessions and safe unexpected-failure logging (unit tests).

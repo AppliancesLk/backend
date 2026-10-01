@@ -77,6 +77,18 @@ const { randomBytes, randomUUID } = require('node:crypto');
       'REPAIRER',
       repairer.id,
     ]);
+    assert.deepEqual(
+      (await call('get', '/orders', alice.cookie).expect(200)).body,
+      [],
+    );
+    checks++;
+    for (const path of ['/orders', `/orders/${randomUUID()}/status`]) {
+      await call('get', path).expect(401);
+      await call('get', path, 'appliances_session=invalid').expect(401);
+      await call('get', path, admin.cookie).expect(403);
+      await call('get', path, repairer.cookie).expect(403);
+      checks += 4;
+    }
     const body = { idempotencyKey: randomUUID(), delivery };
     await status(undefined, body, 401);
     await status('appliances_session=invalid', body, 401);
@@ -349,6 +361,73 @@ const { randomBytes, randomUUID } = require('node:crypto');
       'Idempotency keys are scoped to their authenticated customer',
     );
 
+    // Read APIs use persisted snapshots and isolate every query by owner.
+    const history = (await call('get', '/orders', alice.cookie).expect(200))
+      .body;
+    const expectedHistory = await db.query(
+      'SELECT id FROM orders WHERE "customerId"=$1 ORDER BY "createdAt" DESC, id DESC',
+      [alice.id],
+    );
+    assert.deepEqual(
+      history.map((order) => order.id),
+      expectedHistory.map((row) => row.id),
+    );
+    check(
+      history.every(
+        (order) => order.customerId === alice.id && order.id !== bobOrder.id,
+      ),
+      'History contains only owned orders',
+    );
+    check(
+      history.every(
+        (order) =>
+          order.items.length &&
+          order.createdAt &&
+          order.delivery &&
+          order.total,
+      ),
+      'History includes items, dates, delivery and totals',
+    );
+    assert.deepEqual(
+      history.find((order) => order.id === created.id).items,
+      created.items,
+    );
+    checks += 2;
+    for (const id of [bobOrder.id, randomUUID()]) {
+      await call('get', `/orders/${id}/status`, alice.cookie).expect(404);
+      checks++;
+    }
+    await call('get', '/orders/bad/status', alice.cookie).expect(400);
+    checks++;
+    const { OrderStatus } = require('../dist/orders/enums/order-status.enum');
+    for (const value of Object.values(OrderStatus)) {
+      await db.query('UPDATE orders SET status=$1 WHERE id=$2', [
+        value,
+        created.id,
+      ]);
+      const current = (
+        await call('get', `/orders/${created.id}/status`, alice.cookie).expect(
+          200,
+        )
+      ).body;
+      assert.deepEqual(current, {
+        id: created.id,
+        status: value,
+        updatedAt: created.updatedAt,
+      });
+      check(
+        (await call('get', `/orders/${created.id}`, alice.cookie)).body
+          .status === value,
+        'Details return persisted current status',
+      );
+      check(
+        (await call('get', '/orders', alice.cookie)).body.find(
+          (order) => order.id === created.id,
+        ).status === value,
+        'History returns persisted current status',
+      );
+    }
+
     // Inject failures only in this isolated app instance to prove actual DB
     // rollback of an already-inserted order header and consumed cart rows.
     await add(alice, 2);
@@ -517,6 +596,9 @@ const { randomBytes, randomUUID } = require('node:crypto');
     }
     await call('post', '/auth/logout', alice.cookie).expect(201);
     await status(alice.cookie, body, 401);
+    await call('get', '/orders', alice.cookie).expect(401);
+    await call('get', `/orders/${created.id}/status`, alice.cookie).expect(401);
+    checks += 2;
     console.log(`PASS: ${checks} order integration checks`);
   } finally {
     // Restrictive history FKs mean our temporary orders are removed first.
