@@ -151,15 +151,20 @@ All read endpoints use the existing JwtAuthGuard and session-cookie authenticati
 Unexpected retrieval failures log only operation/resource IDs and a safe status,
 and return a generic 500 without raw database errors or delivery data.
 
-Customer Orders UI, admin management, payment and status mutation remain outside
-this ticket. No schema migration is required for these read APIs.
+Admin order management uses ADMIN-only `GET /admin/orders`,
+`GET /admin/orders/:id`, and `PATCH /admin/orders/:id/status`. Responses include
+the customer username/email and the related payment summary when one exists.
+Lists are newest first. No schema migration is required.
 
 ## Shared order status
 
 The PostgreSQL/TypeScript enum provides PENDING_PAYMENT (creation default),
 CONFIRMED, PROCESSING, SHIPPED, DELIVERED, and CANCELLED. Read APIs return these same canonical values. Only creation/default
-and retrieval are implemented here. No status can be supplied by the client, and transitions
-will be defined and authorized in the later Order Status task.
+Payment verification owns the PENDING_PAYMENT to CONFIRMED transition. Admins can
+move CONFIRMED to PROCESSING, PROCESSING to SHIPPED, and SHIPPED to DELIVERED.
+Eligible pending, confirmed, or processing orders may be cancelled. Backward,
+terminal, arbitrary, and payment-bypassing transitions return 409; enum values
+outside the shared status structure return 400.
 
 ## HTTP failures
 
