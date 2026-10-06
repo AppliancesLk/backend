@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   HttpException,
   Injectable,
   InternalServerErrorException,
@@ -12,8 +13,10 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
 import type { RepairTicketResponseDto } from '../dto/repair-ticket-response.dto';
 import type { AdminRepairTicketResponseDto } from '../dto/admin-repair-ticket-response.dto';
+import type { RepairerRepairTicketResponseDto } from '../dto/repairer-repair-ticket-response.dto';
 import { RepairTicket } from '../entities/repair-ticket.entity';
 import { RepairStatus } from '../enums/repair-status.enum';
+import { validateRepairerStatusTransition } from '../utils/status-transition.util';
 
 @Injectable()
 export class RepairsService {
@@ -283,6 +286,146 @@ export class RepairsService {
         email: ticket.customer.email,
       },
       assignedRepairerId: ticket.assignedRepairerId,
+      device: ticket.device,
+      problemDescription: ticket.problemDescription,
+      status: ticket.status,
+      reviewedAt: ticket.reviewedAt,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+    };
+  }
+
+  // Repairer methods
+  async findAllForRepairer(
+    repairerId: string,
+  ): Promise<RepairerRepairTicketResponseDto[]> {
+    try {
+      const tickets = await this.tickets.find({
+        where: { assignedRepairerId: repairerId },
+        relations: { customer: true },
+        order: { createdAt: 'DESC' },
+      });
+      return tickets.map((ticket) => this.repairerResponse(ticket));
+    } catch (error: unknown) {
+      this.logger.error({
+        operation: 'repairs.findAllForRepairer',
+        repairerId,
+        outcome: 'failed',
+      });
+      throw new InternalServerErrorException(
+        'Unable to retrieve assigned repair tickets. Please try again',
+      );
+    }
+  }
+
+  async findOneForRepairer(
+    id: string,
+    repairerId: string,
+  ): Promise<RepairerRepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+        relations: { customer: true },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+
+      if (ticket.assignedRepairerId !== repairerId) {
+        throw new ForbiddenException(
+          'You do not have permission to access this repair ticket',
+        );
+      }
+
+      return this.repairerResponse(ticket);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.findOneForRepairer',
+        repairTicketId: id,
+        repairerId,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to retrieve repair ticket. Please try again',
+      );
+    }
+  }
+
+  async updateRepairStatus(
+    id: string,
+    repairerId: string,
+    newStatus: RepairStatus,
+  ): Promise<RepairerRepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+        relations: { customer: true },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+
+      if (ticket.assignedRepairerId !== repairerId) {
+        throw new ForbiddenException(
+          'You do not have permission to update this repair ticket',
+        );
+      }
+
+      const previousStatus = ticket.status;
+
+      // Validate the status transition
+      validateRepairerStatusTransition(previousStatus, newStatus);
+
+      ticket.status = newStatus;
+      const updated = await this.tickets.save(ticket);
+
+      this.logger.log({
+        operation: 'repairs.updateStatus',
+        repairTicketId: ticket.id,
+        reference: ticket.reference,
+        repairerId,
+        customerId: ticket.customerId,
+        previousStatus,
+        newStatus,
+        outcome: 'updated',
+      });
+
+      return this.repairerResponse(updated);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.updateStatus',
+        repairTicketId: id,
+        repairerId,
+        newStatus,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to update repair status. Please try again',
+      );
+    }
+  }
+
+  private repairerResponse(
+    ticket: RepairTicket,
+  ): RepairerRepairTicketResponseDto {
+    return {
+      id: ticket.id,
+      reference: ticket.reference,
+      customer: {
+        id: ticket.customer.id,
+        username: ticket.customer.username,
+        email: ticket.customer.email,
+      },
       device: ticket.device,
       problemDescription: ticket.problemDescription,
       status: ticket.status,
