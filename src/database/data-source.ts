@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { BannerSection } from '../banners/entities/banner-section.entity';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Cart } from '../cart/entities/cart.entity';
@@ -17,6 +18,7 @@ export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
   entities: [
+    BannerSection,
     User,
     AuthSession,
     Category,
