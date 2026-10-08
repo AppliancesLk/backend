@@ -1,10 +1,12 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { ProductBadge } from '../enums/product-badge.enum';
 
 import { Category } from '../../categories/entities/category.entity';
 
@@ -15,6 +17,21 @@ export class Product {
 
   @Column()
   name: string;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  brand: string | null;
+
+  @Column({ type: 'varchar', length: 160, default: '' })
+  subtitle: string;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  badge: ProductBadge | null;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  compareAtPrice: number | null;
+
+  @CreateDateColumn({ type: 'timestamptz', nullable: true })
+  createdAt: Date | null;
 
   @Column({ unique: true })
   SKU: string;
@@ -45,14 +62,10 @@ export class Product {
   @Column({ default: true })
   isActive: boolean;
 
-  @ManyToOne(
-    () => Category,
-    (category) => category.products,
-    {
-      nullable: false,
-      onDelete: 'RESTRICT',
-    },
-  )
+  @ManyToOne(() => Category, (category) => category.products, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+  })
   @JoinColumn({ name: 'categoryID' })
   category: Category;
 }
