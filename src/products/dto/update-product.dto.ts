@@ -14,6 +14,8 @@ import {
 } from 'class-validator';
 
 import { ProductCatalogFieldsDto } from './product-catalog-fields.dto';
+import { ArrayMaxSize, Matches, MaxLength } from 'class-validator';
+import { IMAGE_URL_PATTERN } from '../../common/utils/image-url';
 export class UpdateProductDto extends ProductCatalogFieldsDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Transform(({ value }: { value: unknown }) =>
@@ -43,6 +45,9 @@ export class UpdateProductDto extends ProductCatalogFieldsDto {
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsArray()
+  @ArrayMaxSize(10)
+  @MaxLength(2048, { each: true })
+  @Matches(IMAGE_URL_PATTERN, { each: true })
   @IsString({ each: true })
   images?: string[];
 

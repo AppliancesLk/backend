@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,6 +13,7 @@ import { Category } from '../entities/category.entity';
 
 @Injectable()
 export class CategoriesService {
+  private readonly logger = new Logger(CategoriesService.name);
   constructor(
     @InjectRepository(Category)
     private readonly categoriesRepository: Repository<Category>,
@@ -69,12 +71,13 @@ export class CategoriesService {
     }
 
     const category = this.categoriesRepository.create({
+      imageUrl: createCategoryDto.imageUrl ?? null,
       name: createCategoryDto.name,
       isActive: createCategoryDto.isActive ?? true,
       parent,
     });
 
-    return this.categoriesRepository.save(category);
+    return this.persist(category, 'create');
   }
 
   async update(
@@ -93,15 +96,43 @@ export class CategoriesService {
     if (updateCategoryDto.name !== undefined) {
       category.name = updateCategoryDto.name;
     }
+    if (updateCategoryDto.imageUrl !== undefined)
+      category.imageUrl = updateCategoryDto.imageUrl;
 
     if (updateCategoryDto.isActive !== undefined) {
       category.isActive = updateCategoryDto.isActive;
     }
 
     if (updateCategoryDto.parentID !== undefined) {
-      category.parent = await this.findById(updateCategoryDto.parentID);
+      if (updateCategoryDto.parentID) {
+        const all = await this.findAll(true);
+        const byId = new Map(all.map((item) => [item.categoryID, item]));
+        const visited = new Set([categoryID]);
+        let next: string | undefined = updateCategoryDto.parentID;
+        while (next) {
+          if (visited.has(next))
+            throw new BadRequestException(
+              'Category hierarchy cannot contain a cycle',
+            );
+          visited.add(next);
+          next = byId.get(next)?.parent?.categoryID;
+        }
+        category.parent = await this.findById(updateCategoryDto.parentID);
+      } else category.parent = null;
     }
 
-    return this.categoriesRepository.save(category);
+    return this.persist(category, 'update');
+  }
+  private async persist(category: Category, operation: 'create' | 'update') {
+    try {
+      const saved = await this.categoriesRepository.save(category);
+      this.logger.log(`Category ${operation}: categoryId=${saved.categoryID}`);
+      return saved;
+    } catch (error) {
+      this.logger.error(
+        `Category ${operation} failed: categoryId=${category.categoryID ?? 'new'}`,
+      );
+      throw error;
+    }
   }
 }
