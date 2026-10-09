@@ -12,7 +12,8 @@ import {
   Min,
 } from 'class-validator';
 
-export class CreateProductDto {
+import { ProductCatalogFieldsDto } from './product-catalog-fields.dto';
+export class CreateProductDto extends ProductCatalogFieldsDto {
   @IsString()
   @IsNotEmpty()
   name: string;
