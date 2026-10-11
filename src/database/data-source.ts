@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { ProductReview } from '../reviews/entities/product-review.entity';
 import { BannerSection } from '../banners/entities/banner-section.entity';
 import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
@@ -18,6 +19,7 @@ export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
   entities: [
+    ProductReview,
     BannerSection,
     User,
     AuthSession,
