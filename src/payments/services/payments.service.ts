@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { NotificationService } from '../../notification/notification.service';
 import { DataSource, EntityManager, In } from 'typeorm';
 import { toMinorUnits } from '../../common/utils/money';
 import { Order } from '../../orders/entities/order.entity';
@@ -33,7 +34,10 @@ type PayHereConfig = {
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
 
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly notifications: NotificationService,
+  ) {}
 
   async initiate(
     customerId: string,
@@ -177,6 +181,13 @@ export class PaymentsService {
         if (payment.status === PaymentStatus.SUCCESS)
           return { payment, duplicate: true };
 
+        if (
+          payment.status === PaymentStatus.FAILED &&
+          this.providerStatus(dto.status_code) === PaymentStatus.FAILED &&
+          payment.payherePaymentId === dto.payment_id
+        )
+          return { payment, duplicate: true };
+
         payment.payherePaymentId = dto.payment_id;
         payment.providerStatusCode = dto.status_code;
         payment.verifiedAt = new Date();
@@ -219,6 +230,11 @@ export class PaymentsService {
           outcome: 'verified',
         });
       }
+      // SMTP runs only after the verified payment transaction commits.
+      if (!result.duplicate && result.payment.status === PaymentStatus.SUCCESS)
+        await this.notifications.sendPaymentSuccessEmail(result.payment);
+      else if (!result.duplicate && result.payment.status === PaymentStatus.FAILED)
+        await this.notifications.sendPaymentFailedEmail(result.payment);
       return { received: true, duplicate: result.duplicate };
     } catch (error: unknown) {
       this.logFailure('payments.payhere.notify', error, {

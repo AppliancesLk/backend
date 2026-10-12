@@ -5,8 +5,10 @@ const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 export class RejectRepairDto {
+  // Accepted for older callers; the controller always uses the URL identifier.
+  @IsOptional()
   @IsUUID('4')
-  id: string;
+  id?: string;
 
   @IsOptional()
   @Transform(trim)
