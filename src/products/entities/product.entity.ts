@@ -17,6 +17,13 @@ export class Product {
 
   @Column()
   name: string;
+  @Column({ type: 'text', default: '' }) description: string;
+  @Column({ type: 'text', array: true, default: '{}' }) features: string[];
+  @Column({ type: 'text', array: true, default: '{}' }) boxContents: string[];
+  @Column({ type: 'varchar', length: 300, default: '' }) warranty: string;
+  @Column({ type: 'numeric', precision: 3, scale: 2, default: 0 })
+  ratingAverage: number;
+  @Column({ type: 'integer', default: 0 }) ratingCount: number;
 
   @Column({ type: 'varchar', length: 80, nullable: true })
   brand: string | null;
