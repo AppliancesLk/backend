@@ -20,13 +20,23 @@ export class ProductsService {
     private readonly categoriesService: CategoriesService,
   ) {}
 
-  async findAll(): Promise<Product[]> {
-    return this.productsRepository.find({
-      relations: {
-        category: true,
-      },
-    });
-  }
+async findAll(
+  categoryId?: string,
+): Promise<Product[]> {
+  return this.productsRepository.find({
+    where: categoryId
+      ? {
+          category: {
+            categoryID: categoryId,
+          },
+        }
+      : undefined,
+
+    relations: {
+      category: true,
+    },
+  });
+}
 
   async findById(productID: string): Promise<Product> {
     const product = await this.productsRepository.findOne({
