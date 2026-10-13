@@ -48,6 +48,7 @@ export class ProductCatalogService {
       .createQueryBuilder('product')
       .innerJoinAndSelect('product.category', 'category')
       .where('product.isActive = :active', { active: true });
+    if (query.inStock) base.andWhere('product.stockQty > 0');
     if (visibleIds.length)
       base.andWhere('category.categoryID IN (:...visibleIds)', { visibleIds });
     else base.andWhere('1 = 0');
