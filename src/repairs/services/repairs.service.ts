@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { NotificationService } from '../../notification/notification.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
@@ -25,6 +26,7 @@ export class RepairsService {
   constructor(
     @InjectRepository(RepairTicket)
     private readonly tickets: Repository<RepairTicket>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -41,6 +43,7 @@ export class RepairsService {
         reference: ticket.reference,
         outcome: 'created',
       });
+      await this.notifications.sendRepairRequestCreatedEmail(ticket);
       return this.response(ticket);
     } catch (error: unknown) {
       const context = {
@@ -205,7 +208,7 @@ export class RepairsService {
         newStatus: RepairStatus.APPROVED,
         outcome: 'approved',
       });
-
+      await this.notifications.sendRepairApprovedEmail(updated);
       return this.adminResponse(updated);
     } catch (error: unknown) {
       const context = {
@@ -258,7 +261,7 @@ export class RepairsService {
         rejectionReason: rejectionReason ?? 'Not provided',
         outcome: 'rejected',
       });
-
+      await this.notifications.sendRepairRejectedEmail(updated);
       return this.adminResponse(updated);
     } catch (error: unknown) {
       const context = {
@@ -454,7 +457,9 @@ export class RepairsService {
         newStatus,
         outcome: 'updated',
       });
-
+      if (newStatus === RepairStatus.READY_FOR_COLLECTION)
+        await this.notifications.sendRepairReadyForCollectionEmail(updated);
+      else await this.notifications.sendRepairStatusUpdatedEmail(updated);
       return this.repairerResponse(updated);
     } catch (error: unknown) {
       const context = {
