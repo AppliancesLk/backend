@@ -1,6 +1,11 @@
 import { OrderStatus } from '../../../orders/enums/order-status.enum';
 import type { OrderStatusNotice } from '../../types/notification.types';
-import { accountLink, emailLayout, statusLabel } from './email-layout';
+import {
+  accountLink,
+  emailLayout,
+  orderReference,
+  statusLabel,
+} from './email-layout';
 const messages: Record<OrderStatus, string> = {
   PENDING_PAYMENT: 'Your order is awaiting payment.',
   CONFIRMED: 'Your order has been confirmed.',
@@ -17,12 +22,12 @@ export function orderStatusUpdatedTemplate(
   previous: OrderStatus,
 ) {
   return emailLayout({
-    subject: `Order #${order.id} is now ${statusLabel(order.status)}`,
+    subject: `${orderReference(order.id)} is now ${statusLabel(order.status)}`,
     title: 'Order status updated',
     name,
     message: messages[order.status],
+    reference: { value: orderReference(order.id), detail: order.id },
     rows: [
-      ['Order reference', order.id],
       ['Previous status', statusLabel(previous)],
       ['New status', statusLabel(order.status)],
     ],
