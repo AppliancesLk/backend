@@ -12,6 +12,7 @@ const request = require('supertest');
   const { AiToolsService } = require('../dist/ai/services/ai-tools.service');
   const app = await NestFactory.create(AppModule, { logger: ['error'] });
   configureApp(app);
+  require('./helpers/mock-email.cjs').mockEmail(app);
   await app.init();
   const db = app.get(DataSource),
     server = app.getHttpServer();
