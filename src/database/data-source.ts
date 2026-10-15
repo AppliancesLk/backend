@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { ChatSession } from '../chat/entities/chat-session.entity';
+import { ChatMessage } from '../chat/entities/chat-message.entity';
 import { Notification } from '../notification/entities/notification.entity';
 import { AiConversation } from '../ai/entities/ai-conversation.entity';
 import { AiMessage } from '../ai/entities/ai-message.entity';
@@ -22,6 +24,8 @@ export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
   entities: [
+    ChatSession,
+    ChatMessage,
     Notification,
     AiConversation,
     AiMessage,
