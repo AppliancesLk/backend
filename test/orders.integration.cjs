@@ -15,6 +15,7 @@ const { randomBytes, randomUUID } = require('node:crypto');
   } = require('../dist/database/migrations/1792230000000-CreateOrdersAndOrderItems');
   const app = await NestFactory.create(AppModule, { logger: false });
   configureApp(app);
+  require('./helpers/mock-email.cjs').mockEmail(app);
   await app.listen(0, '127.0.0.1');
   const db = app.get(DataSource),
     server = app.getHttpServer();
