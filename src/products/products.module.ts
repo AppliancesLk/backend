@@ -8,11 +8,12 @@ import { Product } from './entities/product.entity';
 import { ProductsController } from './controllers/products.controller';
 import { ProductsService } from './services/products.service';
 import { ProductCatalogService } from './services/product-catalog.service';
+import { OrderInventoryService } from './services/order-inventory.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Product]), CategoriesModule, AuthModule],
   controllers: [ProductsController],
-  providers: [ProductsService, ProductCatalogService],
-  exports: [ProductsService, ProductCatalogService],
+  providers: [ProductsService, ProductCatalogService, OrderInventoryService],
+  exports: [ProductsService, ProductCatalogService, OrderInventoryService],
 })
 export class ProductsModule {}
