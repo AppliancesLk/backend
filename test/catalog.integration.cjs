@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes } = require('node:crypto');
@@ -31,13 +32,11 @@ const { randomBytes } = require('node:crypto');
     return authenticated && cookie ? req.set('Cookie', cookie) : req;
   };
   try {
-    const registered = await call('post', '/auth/register', false)
-      .send({
-        username: `catalog_${suffix}`,
-        email: `catalog_${suffix}@example.com`,
-        password: randomBytes(20).toString('hex'),
-      })
-      .expect(201);
+    const registered = await registerVerified(app, {
+      username: `catalog_${suffix}`,
+      email: `catalog_${suffix}@example.com`,
+      password: randomBytes(20).toString('hex'),
+    });
     users.push(registered.body.user.id);
     cookie = registered.headers['set-cookie'][0].split(';')[0];
     await call('get', '/products/catalog', false).expect(200);
