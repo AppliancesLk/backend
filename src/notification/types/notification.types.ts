@@ -15,6 +15,8 @@ export const NOTIFICATION_TYPES = [
   'REPAIR_STATUS_UPDATED',
   'REPAIR_READY_FOR_COLLECTION',
   'PROMOTION',
+  'EMAIL_VERIFICATION',
+  'PASSWORD_RESET',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export type NotificationStatus = 'PENDING' | 'SENT' | 'FAILED';
