@@ -10,6 +10,7 @@ import { Category } from '../categories/entities/category.entity';
 import { getDatabaseConfig } from '../config/database.config';
 import { Product } from '../products/entities/product.entity';
 import { User } from '../users/entities/user.entity';
+import { Payment } from '../payments/entities/payment.entity';
 
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
@@ -23,6 +24,7 @@ export const AppDataSource = new DataSource({
     CartItem,
     Order,
     OrderItem,
+    Payment,
   ],
 
   migrations: ['src/database/migrations/*.ts'],
