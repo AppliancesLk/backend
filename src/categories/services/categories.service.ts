@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 
 import { CreateCategoryDto } from '../dto/create-category.dto';
 import { UpdateCategoryDto } from '../dto/update-category.dto';
@@ -17,8 +17,13 @@ export class CategoriesService {
     private readonly categoriesRepository: Repository<Category>,
   ) {}
 
-  async findAll(includeInactive = false): Promise<Category[]> {
-    const categories = await this.categoriesRepository.find({
+  async findAll(
+    includeInactive = false,
+    manager?: EntityManager,
+  ): Promise<Category[]> {
+    const repository =
+      manager?.getRepository(Category) ?? this.categoriesRepository;
+    const categories = await repository.find({
       relations: {
         parent: true,
       },
