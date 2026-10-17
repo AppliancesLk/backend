@@ -27,6 +27,7 @@ describe('Order creation', () => {
     create: jest.fn(),
     save: jest.fn(),
     findOne: jest.fn(),
+    find: jest.fn(),
   };
   const dataSource = { manager, transaction: jest.fn() };
   const cart = { lockCurrentCart: jest.fn(), consumeCart: jest.fn() };
@@ -259,4 +260,65 @@ describe('Order creation', () => {
     ])
       expect(logs).not.toContain(secret);
   });
+  it('returns an empty history and scopes newest-first list queries to the customer', async () => {
+    manager.find.mockResolvedValue([]);
+    await expect(service.findAllOwn('customer')).resolves.toEqual([]);
+    expect(manager.find).toHaveBeenCalledWith(Order, {
+      where: { customerId: 'customer' },
+      relations: { items: true },
+      order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
+    });
+  });
+  it('returns stored snapshots for the list and only current status fields for status reads', async () => {
+    await service.create('customer', dto);
+    manager.find.mockResolvedValue([persisted]);
+    const list = await service.findAllOwn('customer');
+    expect(list[0].items[0]).toMatchObject({
+      quantity: 3,
+      unitPrice: '0.10',
+      lineTotal: '0.30',
+    });
+    manager.findOne.mockResolvedValue(persisted);
+    await expect(service.findOwnStatus('customer', 'order')).resolves.toEqual({
+      id: 'order',
+      status: OrderStatus.PENDING_PAYMENT,
+      updatedAt: persisted?.updatedAt,
+    });
+    expect(manager.findOne).toHaveBeenCalledWith(Order, {
+      where: { id: 'order', customerId: 'customer' },
+      select: { id: true, status: true, updatedAt: true },
+    });
+  });
+  it('uses the same not-found response for unknown and unowned status reads', async () => {
+    manager.findOne.mockResolvedValue(null);
+    await expect(service.findOwnStatus('customer', 'unknown')).rejects.toThrow(
+      'Order not found',
+    );
+    expect(errorLog).not.toHaveBeenCalled();
+  });
+  it.each(['list', 'detail', 'status'] as const)(
+    'safely logs unexpected %s retrieval failures',
+    async (operation) => {
+      const failure = new Error('private SQL and delivery sentinel');
+      manager.find.mockRejectedValue(failure);
+      manager.findOne.mockRejectedValue(failure);
+      const result =
+        operation === 'list'
+          ? service.findAllOwn('customer')
+          : operation === 'detail'
+            ? service.findOwn('customer', 'order')
+            : service.findOwnStatus('customer', 'order');
+      await expect(result).rejects.toThrow(
+        'Unable to retrieve orders. Please try again',
+      );
+      expect(errorLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          operation: `orders.${operation}`,
+          customerId: 'customer',
+          statusCode: 500,
+        }),
+      );
+      expect(JSON.stringify(errorLog.mock.calls)).not.toContain('sentinel');
+    },
+  );
 });
