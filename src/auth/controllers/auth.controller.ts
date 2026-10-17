@@ -4,9 +4,17 @@ import {
   Get,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 
+import type { Response } from 'express';
+import {
+  readSessionCookie,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionDuration,
+} from '../session.config';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.type';
 import { UserRole } from '../../users/enums/user-role.enum';
 
@@ -19,18 +27,46 @@ import { AuthService } from '../services/auth.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto);
+    await this.authService.logout(readSessionCookie(req.headers.cookie));
+    res.cookie(SESSION_COOKIE, result.token, {
+      ...sessionCookieOptions(),
+      maxAge: sessionDuration(),
+    });
+    return { user: result.user };
   }
 
   @Post('login')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    await this.authService.logout(readSessionCookie(req.headers.cookie));
+    res.cookie(SESSION_COOKIE, result.token, {
+      ...sessionCookieOptions(),
+      maxAge: sessionDuration(),
+    });
+    return { user: result.user };
+  }
+
+  @Post('logout')
+  async logout(
+    @Req() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.logout(readSessionCookie(req.headers.cookie));
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
+    return { message: 'Signed out' };
   }
 
   @Get('profile')
