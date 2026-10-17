@@ -36,7 +36,11 @@ const { randomBytes } = require('node:crypto');
       .expect(201);
     userId = registered.body.user.id;
     const cookie = registered.headers['set-cookie'][0].split(';')[0];
-    for (const path of ['/products/admin/all', '/categories/admin/all']) {
+    for (const path of [
+      '/products/admin/all',
+      '/categories/admin/all',
+      '/products/admin/00000000-0000-4000-8000-000000000000',
+    ]) {
       await call('get', path).expect(401);
       checks++;
       await call('get', path, cookie).expect(403);
@@ -53,6 +57,18 @@ const { randomBytes } = require('node:crypto');
       await call(method, path, cookie).send(body).expect(403);
       checks++;
     }
+    await call('patch', '/products/00000000-0000-4000-8000-000000000000')
+      .send({ name: 'Changed' })
+      .expect(401);
+    checks++;
+    await call(
+      'patch',
+      '/products/00000000-0000-4000-8000-000000000000',
+      cookie,
+    )
+      .send({ name: 'Changed' })
+      .expect(403);
+    checks++;
     await db.query('UPDATE users SET role=$1 WHERE id=$2', ['ADMIN', userId]);
     const parent = await call('post', '/categories', cookie)
       .send({ name: `Test parent ${suffix}` })
@@ -120,6 +136,159 @@ const { randomBytes } = require('node:crypto');
       .send({ stockQty: 1, price: 99 })
       .expect(400);
     checks++;
+    const adminDetail = await call(
+      'get',
+      `/products/admin/${id}`,
+      cookie,
+    ).expect(200);
+    check(
+      adminDetail.body.productID === id &&
+        adminDetail.body.category.categoryID === category.body.categoryID,
+      'Admin detail includes product and category',
+    );
+    await call('get', '/products/admin/not-a-uuid', cookie).expect(400);
+    checks++;
+    await call(
+      'get',
+      '/products/admin/00000000-0000-4000-8000-000000000000',
+      cookie,
+    ).expect(404);
+    checks++;
+    await call(
+      'patch',
+      '/products/00000000-0000-4000-8000-000000000000',
+      cookie,
+    )
+      .send({ name: 'Changed' })
+      .expect(404);
+    checks++;
+    for (const field of [
+      'name',
+      'SKU',
+      'price',
+      'categoryID',
+      'images',
+      'isActive',
+    ]) {
+      await call('patch', `/products/${id}`, cookie)
+        .send({ [field]: null })
+        .expect(400);
+      checks++;
+    }
+    for (const body of [
+      { name: '' },
+      { name: '   ' },
+      { SKU: '' },
+      { SKU: ' \t ' },
+      { price: -1 },
+      { price: 1.001 },
+      { price: 10000000000 },
+      { price: '12' },
+      { categoryID: 'invalid' },
+      { images: [1] },
+      { images: 'url' },
+      { specifications: [] },
+      { specifications: 'text' },
+      { isActive: 'false' },
+      { stockQty: 4 },
+      { unknownField: 'ignored?' },
+    ]) {
+      await call('patch', `/products/${id}`, cookie).send(body).expect(400);
+      checks++;
+    }
+    await call('patch', `/products/${id}`, cookie)
+      .send({
+        name: 'Must not persist',
+        categoryID: '00000000-0000-4000-8000-000000000000',
+      })
+      .expect(404);
+    checks++;
+    const unchanged = await call('get', `/products/admin/${id}`, cookie).expect(
+      200,
+    );
+    check(
+      unchanged.body.name === input.name &&
+        unchanged.body.SKU === input.SKU &&
+        unchanged.body.stockQty === 15,
+      'Rejected edits leave the product unchanged',
+    );
+    const specifications = {
+      Capacity: '9 kg',
+      Programs: ['Cotton', 'Wool'],
+      Smart: false,
+      Dimensions: { width: 60 },
+      Optional: null,
+    };
+    const edit = {
+      name: `  Updated appliance ${suffix}  `,
+      SKU: ` UPDATED-${suffix} `,
+      price: 0,
+      categoryID: parent.body.categoryID,
+      images: ['https://example.com/front.jpg', 'https://example.com/back.jpg'],
+      specifications,
+      isActive: true,
+    };
+    const updated = await call('patch', `/products/${id}`, cookie)
+      .send(edit)
+      .expect(200);
+    check(
+      updated.body.name === edit.name.trim() &&
+        updated.body.SKU === edit.SKU.trim(),
+      'Updated names and SKUs are trimmed',
+    );
+    check(
+      Number(updated.body.price) === 0 && updated.body.stockQty === 15,
+      'Zero price is valid and detail edits preserve stock',
+    );
+    check(
+      updated.body.category.categoryID === parent.body.categoryID &&
+        updated.body.images.length === 2,
+      'Category and image replacement persists',
+    );
+    assert.deepEqual(updated.body.specifications, specifications);
+    checks++;
+    const partial = await call('patch', `/products/${id}`, cookie)
+      .send({ price: 9999999999.99 })
+      .expect(200);
+    check(
+      Number(partial.body.price) === 9999999999.99 &&
+        partial.body.name === edit.name.trim() &&
+        partial.body.stockQty === 15,
+      'Maximum price is accepted and omitted fields are preserved',
+    );
+    assert.deepEqual(partial.body.specifications, specifications);
+    checks++;
+    const cleared = await call('patch', `/products/${id}`, cookie)
+      .send({ images: [], specifications: null })
+      .expect(200);
+    check(
+      cleared.body.images.length === 0 && cleared.body.specifications === null,
+      'Empty images and null specifications explicitly clear their values',
+    );
+    const emptySpecs = await call('patch', `/products/${id}`, cookie)
+      .send({ specifications: {} })
+      .expect(200);
+    assert.deepEqual(emptySpecs.body.specifications, {});
+    checks++;
+    const noOp = await call('patch', `/products/${id}`, cookie)
+      .send({})
+      .expect(200);
+    check(
+      noOp.body.name === edit.name.trim() &&
+        noOp.body.SKU === edit.SKU.trim() &&
+        noOp.body.stockQty === 15,
+      'An empty patch preserves all data',
+    );
+    const persisted = await call('get', `/products/admin/${id}`, cookie).expect(
+      200,
+    );
+    check(
+      persisted.body.name === edit.name.trim() &&
+        Number(persisted.body.price) === 9999999999.99 &&
+        persisted.body.specifications &&
+        Object.keys(persisted.body.specifications).length === 0,
+      'Edits are persisted and can be reloaded',
+    );
     const publicProducts = await call('get', '/products').expect(200);
     check(
       publicProducts.body.some(
@@ -137,6 +306,24 @@ const { randomBytes } = require('node:crypto');
     );
     await call('get', `/products/${id}`).expect(404);
     checks++;
+    const inactiveDetail = await call(
+      'get',
+      `/products/admin/${id}`,
+      cookie,
+    ).expect(200);
+    check(
+      inactiveDetail.body.isActive === false,
+      'Admin detail includes inactive products',
+    );
+    const inactiveEdit = await call('patch', `/products/${id}`, cookie)
+      .send({ name: `Edited inactive ${suffix}` })
+      .expect(200);
+    check(
+      inactiveEdit.body.isActive === false &&
+        inactiveEdit.body.name === `Edited inactive ${suffix}`,
+      'Inactive products remain editable',
+    );
+
     const adminProducts = await call(
       'get',
       '/products/admin/all',
@@ -172,6 +359,47 @@ const { randomBytes } = require('node:crypto');
         (item) => item.categoryID === parent.body.categoryID,
       ),
       'Admin can reactivate categories',
+    );
+    const hiddenCategoryDetail = await call(
+      'get',
+      `/products/admin/${id}`,
+      cookie,
+    ).expect(200);
+    check(
+      hiddenCategoryDetail.body.category.categoryID === parent.body.categoryID,
+      'Admin detail includes products in inactive categories',
+    );
+    const other = await call('post', '/products', cookie)
+      .send({
+        name: `Other appliance ${suffix}`,
+        SKU: `OTHER-${suffix}`,
+        price: 100,
+        categoryID: category.body.categoryID,
+      })
+      .expect(201);
+    productIDs.push(other.body.productID);
+    await call('patch', `/products/${id}`, cookie)
+      .send({ SKU: other.body.SKU })
+      .expect(409);
+    checks++;
+    const raceSKU = `RACE-${suffix}`;
+    const races = await Promise.all(
+      [id, other.body.productID].map((productID) =>
+        call('patch', `/products/${productID}`, cookie).send({ SKU: raceSKU }),
+      ),
+    );
+    assert.deepEqual(
+      races.map((response) => response.status).sort(),
+      [200, 409],
+    );
+    checks++;
+    const rows = await db.query(
+      'SELECT "productID" FROM products WHERE "SKU"=$1',
+      [raceSKU],
+    );
+    check(
+      rows.length === 1,
+      'Concurrent duplicate SKUs have exactly one winner',
     );
     console.log(`PASS: ${checks} admin management checks`);
   } finally {

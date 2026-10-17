@@ -1,42 +1,56 @@
+import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdateProductDto {
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   name?: string;
 
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
+  @IsNotEmpty()
   SKU?: string;
 
-  @IsOptional()
-  @IsNumber()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
+  @Max(9999999999.99)
   price?: number;
 
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsUUID()
   categoryID?: string;
 
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsArray()
   @IsString({ each: true })
   images?: string[];
 
+  // Null explicitly clears this nullable column; omission preserves it.
   @IsOptional()
   @IsObject()
-  specifications?: Record<string, unknown>;
+  specifications?: Record<string, unknown> | null;
 
-  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsBoolean()
   isActive?: boolean;
 }

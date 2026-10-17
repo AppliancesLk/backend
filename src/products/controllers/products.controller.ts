@@ -36,6 +36,13 @@ export class ProductsController {
     return this.productsService.findAll(undefined, true);
   }
 
+  @Get('admin/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  findOneForAdmin(@Param('id', ParseUUIDPipe) id: string) {
+    return this.productsService.findById(id, true);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.productsService.findById(id);
