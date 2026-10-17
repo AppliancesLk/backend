@@ -37,6 +37,19 @@ documented formula:
     UPPER(MD5(merchant_id + order_id + amount + currency +
       UPPER(MD5(merchant_secret))))
 
+## Read verified payment state
+
+    GET /payments/orders/:orderId
+
+JWT session authentication and the CUSTOMER role are required. The lookup is
+scoped by both order ID and authenticated customer ID; unknown and unowned
+payments both return 404. The response exposes only the internal payment ID,
+order ID, trusted amount/currency, status, and timestamps. It never returns the
+PayHere payment ID, provider status code, merchant secret, or callback data.
+
+Frontend PayHere completion, dismissal, and error callbacks are only prompts to
+read this endpoint. They are never accepted as proof that payment succeeded.
+
 The request's backend origin is used to form the notify URL. When testing the
 real sandbox, expose the backend through a public HTTPS URL because PayHere
 cannot notify localhost. Configure the reverse proxy/tunnel to preserve the
