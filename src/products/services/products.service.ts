@@ -1,10 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository, type DeepPartial } from 'typeorm';
 
 import { CategoriesService } from '../../categories/services/categories.service';
 import { CreateProductDto } from '../dto/create-product.dto';
@@ -13,6 +14,7 @@ import { Product } from '../entities/product.entity';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
   constructor(
     @InjectRepository(Product)
     private readonly productsRepository: Repository<Product>,
@@ -85,7 +87,7 @@ export class ProductsService {
       category,
     });
 
-    return this.productsRepository.save(product);
+    return this.persistProduct(product, 'create');
   }
 
   async updateStock(productID: string, stockQty: number): Promise<Product> {
@@ -94,55 +96,67 @@ export class ProductsService {
     return this.productsRepository.save(product);
   }
 
-  async update(
-    productID: string,
-    updateProductDto: UpdateProductDto,
-  ): Promise<Product> {
+  async update(productID: string, dto: UpdateProductDto): Promise<Product> {
     const product = await this.findById(productID, true);
-
-    if (
-      updateProductDto.SKU !== undefined &&
-      updateProductDto.SKU !== product.SKU
-    ) {
-      const productWithSameSKU = await this.productsRepository.findOne({
-        where: {
-          SKU: updateProductDto.SKU,
-        },
+    if (dto.SKU !== undefined && dto.SKU !== product.SKU) {
+      const duplicate = await this.productsRepository.findOne({
+        where: { SKU: dto.SKU },
       });
-
-      if (productWithSameSKU) {
+      if (duplicate)
         throw new ConflictException('A product with this SKU already exists');
+    }
+
+    const { categoryID, ...fields } = dto;
+    // Save only supplied columns so a detail edit cannot write stale stock or
+    // overwrite an unrelated field changed by another admin.
+    const changes: DeepPartial<Product> = { productID, ...fields };
+    if (categoryID !== undefined) {
+      const category = await this.categoriesService.findById(categoryID);
+      changes.category = { categoryID: category.categoryID };
+    }
+    if (!Object.values(dto).some((value) => value !== undefined))
+      return product;
+    await this.persistProduct(changes, 'update');
+    return this.findById(productID, true);
+  }
+
+  private async persistProduct(
+    changes: DeepPartial<Product>,
+    operation: 'create' | 'update',
+  ): Promise<Product> {
+    try {
+      const saved = await this.productsRepository.save(changes);
+      this.logger.log({
+        operation: `products.${operation}`,
+        productId: saved.productID,
+        outcome: 'success',
+      });
+      return saved;
+    } catch (error: unknown) {
+      if (error instanceof QueryFailedError) {
+        const driverError = error.driverError as {
+          code?: string;
+          constraint?: string;
+        };
+        // The existing products migration names the SKU uniqueness constraint.
+        if (
+          driverError.code === '23505' &&
+          driverError.constraint === 'UQ_d750d40dee7a63a316039f246be'
+        ) {
+          this.logger.warn({
+            operation: `products.${operation}`,
+            productId: changes.productID,
+            outcome: 'duplicate_sku',
+          });
+          throw new ConflictException('A product with this SKU already exists');
+        }
       }
-
-      product.SKU = updateProductDto.SKU;
+      this.logger.error({
+        operation: `products.${operation}`,
+        productId: changes.productID,
+        outcome: 'persistence_failed',
+      });
+      throw error;
     }
-
-    if (updateProductDto.name !== undefined) {
-      product.name = updateProductDto.name;
-    }
-
-    if (updateProductDto.price !== undefined) {
-      product.price = updateProductDto.price;
-    }
-
-    if (updateProductDto.images !== undefined) {
-      product.images = updateProductDto.images;
-    }
-
-    if (updateProductDto.specifications !== undefined) {
-      product.specifications = updateProductDto.specifications;
-    }
-
-    if (updateProductDto.isActive !== undefined) {
-      product.isActive = updateProductDto.isActive;
-    }
-
-    if (updateProductDto.categoryID !== undefined) {
-      product.category = await this.categoriesService.findById(
-        updateProductDto.categoryID,
-      );
-    }
-
-    return this.productsRepository.save(product);
   }
 }
