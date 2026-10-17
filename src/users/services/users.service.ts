@@ -18,6 +18,10 @@ export class UsersService {
     });
   }
 
+  async findByUsername(username: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { username } });
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.usersRepository.findOne({
       where: { id },
@@ -26,10 +30,12 @@ export class UsersService {
 
   async createCustomer(
     email: string,
+    username: string,
     passwordHash: string,
   ): Promise<User> {
     const user = this.usersRepository.create({
       email,
+      username,
       passwordHash,
       role: UserRole.CUSTOMER,
     });
