@@ -4,12 +4,14 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
 import type { RepairTicketResponseDto } from '../dto/repair-ticket-response.dto';
+import type { AdminRepairTicketResponseDto } from '../dto/admin-repair-ticket-response.dto';
 import { RepairTicket } from '../entities/repair-ticket.entity';
 import { RepairStatus } from '../enums/repair-status.enum';
 
@@ -114,6 +116,172 @@ export class RepairsService {
       id: ticket.id,
       reference: ticket.reference,
       customerId: ticket.customerId,
+      assignedRepairerId: ticket.assignedRepairerId,
+      device: ticket.device,
+      problemDescription: ticket.problemDescription,
+      status: ticket.status,
+      reviewedAt: ticket.reviewedAt,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+    };
+  }
+
+  // Admin methods
+  async findAll(): Promise<AdminRepairTicketResponseDto[]> {
+    try {
+      const tickets = await this.tickets.find({
+        relations: { customer: true },
+        order: { createdAt: 'DESC' },
+      });
+      return tickets.map((ticket) => this.adminResponse(ticket));
+    } catch (error: unknown) {
+      this.logger.error({
+        operation: 'repairs.findAll',
+        outcome: 'failed',
+      });
+      throw new InternalServerErrorException(
+        'Unable to retrieve repair tickets. Please try again',
+      );
+    }
+  }
+
+  async findOne(id: string): Promise<AdminRepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+        relations: { customer: true },
+      });
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+      return this.adminResponse(ticket);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.findOne',
+        repairTicketId: id,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to retrieve repair ticket. Please try again',
+      );
+    }
+  }
+
+  async approve(id: string): Promise<AdminRepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+        relations: { customer: true },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+
+      if (ticket.status !== RepairStatus.PENDING) {
+        throw new BadRequestException(
+          `Cannot approve repair with status ${ticket.status}. Only PENDING repairs can be approved.`,
+        );
+      }
+
+      ticket.status = RepairStatus.APPROVED;
+      ticket.reviewedAt = new Date();
+
+      const updated = await this.tickets.save(ticket);
+
+      this.logger.log({
+        operation: 'repairs.approve',
+        repairTicketId: ticket.id,
+        reference: ticket.reference,
+        customerId: ticket.customerId,
+        previousStatus: RepairStatus.PENDING,
+        newStatus: RepairStatus.APPROVED,
+        outcome: 'approved',
+      });
+
+      return this.adminResponse(updated);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.approve',
+        repairTicketId: id,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to approve repair ticket. Please try again',
+      );
+    }
+  }
+
+  async reject(
+    id: string,
+    rejectionReason?: string,
+  ): Promise<AdminRepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+        relations: { customer: true },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+
+      if (ticket.status !== RepairStatus.PENDING) {
+        throw new BadRequestException(
+          `Cannot reject repair with status ${ticket.status}. Only PENDING repairs can be rejected.`,
+        );
+      }
+
+      ticket.status = RepairStatus.REJECTED;
+      ticket.reviewedAt = new Date();
+
+      const updated = await this.tickets.save(ticket);
+
+      this.logger.log({
+        operation: 'repairs.reject',
+        repairTicketId: ticket.id,
+        reference: ticket.reference,
+        customerId: ticket.customerId,
+        previousStatus: RepairStatus.PENDING,
+        newStatus: RepairStatus.REJECTED,
+        rejectionReason: rejectionReason ?? 'Not provided',
+        outcome: 'rejected',
+      });
+
+      return this.adminResponse(updated);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.reject',
+        repairTicketId: id,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to reject repair ticket. Please try again',
+      );
+    }
+  }
+
+  private adminResponse(ticket: RepairTicket): AdminRepairTicketResponseDto {
+    return {
+      id: ticket.id,
+      reference: ticket.reference,
+      customer: {
+        id: ticket.customer.id,
+        username: ticket.customer.username,
+        email: ticket.customer.email,
+      },
       assignedRepairerId: ticket.assignedRepairerId,
       device: ticket.device,
       problemDescription: ticket.problemDescription,
