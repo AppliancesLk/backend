@@ -36,6 +36,23 @@ export class RepairsController {
     return this.repairsService.create(request.user.sub, dto);
   }
 
+  @Get()
+  @Roles(UserRole.CUSTOMER)
+  findAllForCustomer(@Req() request: AuthenticatedRequest) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.findAllForCustomer(request.user.sub);
+  }
+
+  @Get(':id')
+  @Roles(UserRole.CUSTOMER)
+  findOneForCustomer(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.findOneForCustomer(id, request.user.sub);
+  }
+
   // Admin endpoints
   @Get('admin')
   @Roles(UserRole.ADMIN)

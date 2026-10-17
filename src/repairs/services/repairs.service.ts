@@ -295,6 +295,65 @@ export class RepairsService {
     };
   }
 
+  // Customer methods
+  async findAllForCustomer(
+    customerId: string,
+  ): Promise<RepairTicketResponseDto[]> {
+    try {
+      const tickets = await this.tickets.find({
+        where: { customerId },
+        order: { createdAt: 'DESC' },
+      });
+      return tickets.map((ticket) => this.response(ticket));
+    } catch (error: unknown) {
+      this.logger.error({
+        operation: 'repairs.findAllForCustomer',
+        customerId,
+        outcome: 'failed',
+      });
+      throw new InternalServerErrorException(
+        'Unable to retrieve your repair tickets. Please try again',
+      );
+    }
+  }
+
+  async findOneForCustomer(
+    id: string,
+    customerId: string,
+  ): Promise<RepairTicketResponseDto> {
+    try {
+      const ticket = await this.tickets.findOne({
+        where: { id },
+      });
+
+      if (!ticket) {
+        throw new NotFoundException('Repair ticket not found');
+      }
+
+      if (ticket.customerId !== customerId) {
+        throw new ForbiddenException(
+          'You do not have permission to access this repair ticket',
+        );
+      }
+
+      return this.response(ticket);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.findOneForCustomer',
+        repairTicketId: id,
+        customerId,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to retrieve repair ticket. Please try again',
+      );
+    }
+  }
+
   // Repairer methods
   async findAllForRepairer(
     repairerId: string,
