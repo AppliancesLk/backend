@@ -8,6 +8,7 @@ import { getDatabaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { CartModule } from './cart/cart.module';
 import { ProductsModule } from './products/products.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { ProductsModule } from './products/products.module';
     CategoriesModule,
 
     ProductsModule,
+    CartModule,
   ],
 
   controllers: [AppController],

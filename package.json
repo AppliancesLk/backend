@@ -25,7 +25,8 @@
     "migration:revert": "npm run typeorm -- migration:revert",
     "test:auth:integration": "npm run build && node test/auth.integration.cjs",
     "seed:admin": "npm run build && node scripts/seed-admin.cjs",
-    "test:admin:integration": "npm run build && node test/admin.integration.cjs"
+    "test:admin:integration": "npm run build && node test/admin.integration.cjs",
+    "test:cart:integration": "npm run build && node test/cart.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
