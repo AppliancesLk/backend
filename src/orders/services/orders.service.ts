@@ -10,8 +10,10 @@ import { createHash } from 'node:crypto';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { CartService } from '../../cart/services/cart.service';
 import { CheckoutService } from '../../checkout/services/checkout.service';
+import { Payment } from '../../payments/entities/payment.entity';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import {
+  AdminOrderResponseDto,
   OrderResponseDto,
   OrderStatusResponseDto,
 } from '../dto/order-response.dto';
@@ -187,6 +189,94 @@ export class OrdersService {
     }
   }
 
+  async findAllForAdmin(): Promise<AdminOrderResponseDto[]> {
+    try {
+      const orders = await this.dataSource.manager.find(Order, {
+        relations: { customer: true, items: true },
+        order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
+      });
+      const payments = orders.length
+        ? await this.dataSource.manager
+            .createQueryBuilder(Payment, 'payment')
+            .where('payment.orderId IN (:...orderIds)', {
+              orderIds: orders.map((order) => order.id),
+            })
+            .getMany()
+        : [];
+      const byOrder = new Map(payments.map((payment) => [payment.orderId, payment]));
+      return orders.map((order) => this.adminResponse(order, byOrder.get(order.id)));
+    } catch (error: unknown) {
+      return this.adminRetrievalFailure(error, 'orders.admin.list');
+    }
+  }
+
+  async findForAdmin(id: string): Promise<AdminOrderResponseDto> {
+    try {
+      const order = await this.dataSource.manager.findOne(Order, {
+        where: { id },
+        relations: { customer: true, items: true },
+        order: { items: { id: 'ASC' } },
+      });
+      if (!order) throw new NotFoundException('Order not found');
+      const payment = await this.dataSource.manager.findOne(Payment, {
+        where: { orderId: id },
+      });
+      return this.adminResponse(order, payment ?? undefined);
+    } catch (error: unknown) {
+      return this.adminRetrievalFailure(error, 'orders.admin.detail', id);
+    }
+  }
+
+  async updateStatus(
+    adminId: string,
+    id: string,
+    status: OrderStatus,
+  ): Promise<AdminOrderResponseDto> {
+    try {
+      const previous = await this.dataSource.transaction(async (manager) => {
+        const order = await manager.findOne(Order, {
+          where: { id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        const from = order.status;
+        if (from !== status && !this.allowedStatuses(from).includes(status))
+          throw new ConflictException(
+            `Order status cannot change from ${from} to ${status}`,
+          );
+        if (from !== status) {
+          order.status = status;
+          await manager.save(order);
+        }
+        return from;
+      });
+      this.logger.log({
+        operation: 'orders.admin.status.update',
+        adminId,
+        orderId: id,
+        previousStatus: previous,
+        status,
+        outcome: previous === status ? 'unchanged' : 'updated',
+      });
+      return this.findForAdmin(id);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'orders.admin.status.update',
+        adminId,
+        orderId: id,
+        status,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to update order status. Please try again',
+      );
+    }
+  }
+
   private retrievalFailure(
     error: unknown,
     operation: string,
@@ -205,6 +295,30 @@ export class OrdersService {
     throw new InternalServerErrorException(
       'Unable to retrieve orders. Please try again',
     );
+  }
+
+  private adminRetrievalFailure(
+    error: unknown,
+    operation: string,
+    orderId?: string,
+  ): never {
+    if (error instanceof HttpException) throw error;
+    this.logger.error({ operation, orderId, outcome: 'failed', statusCode: 500 });
+    throw new InternalServerErrorException(
+      'Unable to retrieve orders. Please try again',
+    );
+  }
+
+  private allowedStatuses(status: OrderStatus): OrderStatus[] {
+    const transitions: Record<OrderStatus, OrderStatus[]> = {
+      [OrderStatus.PENDING_PAYMENT]: [OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
+      [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
+      [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
+      [OrderStatus.DELIVERED]: [],
+      [OrderStatus.CANCELLED]: [],
+    };
+    return transitions[status];
   }
 
   private findByKey(
@@ -267,6 +381,29 @@ export class OrdersService {
           unitPrice: item.unitPrice,
           lineTotal: item.lineTotal,
         })),
+    };
+  }
+
+  private adminResponse(
+    order: Order,
+    payment?: Payment,
+  ): AdminOrderResponseDto {
+    return {
+      ...this.response(order),
+      customer: {
+        id: order.customer.id,
+        username: order.customer.username,
+        email: order.customer.email,
+      },
+      payment: payment
+        ? {
+            id: payment.id,
+            status: payment.status,
+            amount: payment.amount,
+            currency: payment.currency,
+            updatedAt: payment.updatedAt,
+          }
+        : null,
     };
   }
 }
