@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { Order } from '../orders/entities/order.entity';
+import { OrderItem } from '../orders/entities/order-item.entity';
 import { Cart } from '../cart/entities/cart.entity';
 import { CartItem } from '../cart/entities/cart-item.entity';
 import { AuthSession } from '../auth/entities/auth-session.entity';
@@ -12,7 +14,16 @@ import { User } from '../users/entities/user.entity';
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
-  entities: [User, AuthSession, Category, Product, Cart, CartItem],
+  entities: [
+    User,
+    AuthSession,
+    Category,
+    Product,
+    Cart,
+    CartItem,
+    Order,
+    OrderItem,
+  ],
 
   migrations: ['src/database/migrations/*.ts'],
 });

@@ -40,6 +40,29 @@ export class CartService {
     );
   }
 
+  // These transaction-only capabilities keep order consumption inside Cart.
+  async lockCurrentCart(userId: string, manager: EntityManager): Promise<void> {
+    const cart = await manager.findOne(Cart, {
+      where: { userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!cart) throw new BadRequestException('Cart is empty');
+  }
+
+  async consumeCart(
+    userId: string,
+    cartId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const cart = await manager.findOne(Cart, {
+      where: { id: cartId, userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!cart) throw new NotFoundException('Cart not found');
+    await manager.delete(CartItem, { cartId: cart.id });
+    await manager.update(Cart, { id: cart.id }, { updatedAt: new Date() });
+  }
+
   async addItem(userId: string, dto: AddCartItemDto): Promise<CartResponseDto> {
     return this.mutate('add', userId, async (manager, cart) => {
       this.validateQuantity(dto.quantity);
