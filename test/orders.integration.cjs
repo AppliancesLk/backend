@@ -297,6 +297,59 @@ const { randomBytes, randomUUID } = require('node:crypto');
     ).body;
     assert.deepEqual(historical, created);
     checks++;
+    await call('get', '/admin/orders').expect(401);
+    await call('get', '/admin/orders', alice.cookie).expect(403);
+    await call('get', '/admin/orders', repairer.cookie).expect(403);
+    checks += 3;
+    const adminList = (
+      await call('get', '/admin/orders', admin.cookie).expect(200)
+    ).body;
+    const adminSummary = adminList.find((order) => order.id === created.id);
+    check(
+      adminSummary?.customer.id === alice.id &&
+        adminSummary.customer.email.endsWith('@example.com') &&
+        adminSummary.payment === null,
+      'Admin list returns customer details and optional payment state',
+    );
+    const adminDetail = (
+      await call('get', `/admin/orders/${created.id}`, admin.cookie).expect(200)
+    ).body;
+    check(
+      adminDetail.items.length === 2 && adminDetail.delivery.city === 'Colombo',
+      'Admin detail returns purchase snapshots and delivery information',
+    );
+    await call('get', `/admin/orders/${randomUUID()}`, admin.cookie).expect(404);
+    await call('get', '/admin/orders/bad', admin.cookie).expect(400);
+    await call('patch', `/admin/orders/${created.id}/status`, alice.cookie)
+      .send({ status: 'CANCELLED' })
+      .expect(403);
+    await call('patch', `/admin/orders/${created.id}/status`, admin.cookie)
+      .send({ status: 'MADE_UP' })
+      .expect(400);
+    await call('patch', `/admin/orders/${created.id}/status`, admin.cookie)
+      .send({ status: 'CONFIRMED' })
+      .expect(409);
+    checks += 5;
+    const cancelled = (
+      await call('patch', `/admin/orders/${created.id}/status`, admin.cookie)
+        .send({ status: 'CANCELLED' })
+        .expect(200)
+    ).body;
+    check(cancelled.status === 'CANCELLED', 'Admin can persist a valid status transition');
+    check(
+      (await call('get', `/orders/${created.id}`, alice.cookie)).body.status ===
+        'CANCELLED',
+      'Customer immediately sees the admin-updated status',
+    );
+    await call('patch', `/admin/orders/${created.id}/status`, admin.cookie)
+      .send({ status: 'DELIVERED' })
+      .expect(409);
+    checks++;
+    await db.query('UPDATE orders SET status=$1, "updatedAt"=$2 WHERE id=$3', [
+      'PENDING_PAYMENT',
+      created.updatedAt,
+      created.id,
+    ]);
     await assert.rejects(
       db.query('DELETE FROM products WHERE "productID"=$1', [
         product.productID,
