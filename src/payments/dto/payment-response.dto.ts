@@ -1,4 +1,5 @@
 import type { PaymentStatus } from '../enums/payment-status.enum';
+import type { PaymentMethod } from '../enums/payment-method.enum';
 
 export interface PaymentResponseDto {
   id: string;
@@ -6,6 +7,7 @@ export interface PaymentResponseDto {
   amount: string;
   currency: string;
   status: PaymentStatus;
+  method: PaymentMethod;
   createdAt: Date;
   updatedAt: Date;
 }
