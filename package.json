@@ -29,7 +29,8 @@
     "test:cart:integration": "npm run build && node test/cart.integration.cjs",
     "test:checkout:integration": "npm run build && node test/checkout.integration.cjs",
     "test:orders:integration": "npm run build && node test/orders.integration.cjs",
-    "test:payments:integration": "npm run build && node test/payments.integration.cjs"
+    "test:payments:integration": "npm run build && node test/payments.integration.cjs",
+    "test:repairs:integration": "npm run build && node test/repairs.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

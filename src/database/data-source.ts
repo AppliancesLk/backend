@@ -11,6 +11,7 @@ import { getDatabaseConfig } from '../config/database.config';
 import { Product } from '../products/entities/product.entity';
 import { User } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
+import { RepairTicket } from '../repairs/entities/repair-ticket.entity';
 
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
@@ -25,6 +26,7 @@ export const AppDataSource = new DataSource({
     Order,
     OrderItem,
     Payment,
+    RepairTicket,
   ],
 
   migrations: ['src/database/migrations/*.ts'],
