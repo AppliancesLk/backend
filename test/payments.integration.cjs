@@ -166,6 +166,24 @@ const callbackHash = (input) =>
       pending.status === 'PENDING' && pending.amount === '2469.00',
       'Pending payment persists',
     );
+    await call('get', '/payments/orders/' + order.id).expect(401);
+    checks++;
+    await call('get', '/payments/orders/' + order.id, admin.cookie).expect(403);
+    checks++;
+    await call('get', '/payments/orders/' + order.id, other.cookie).expect(404);
+    checks++;
+    const pendingRead = (
+      await call('get', '/payments/orders/' + order.id, customer.cookie).expect(
+        200,
+      )
+    ).body;
+    check(
+      pendingRead.status === 'PENDING' &&
+        pendingRead.amount === '2469.00' &&
+        !('payherePaymentId' in pendingRead) &&
+        !('providerStatusCode' in pendingRead),
+      'Customer reads only the safe verified payment state',
+    );
 
     const base = {
       merchant_id: process.env.PAYHERE_MERCHANT_ID,

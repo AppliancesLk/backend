@@ -231,6 +231,25 @@ export class PaymentsService {
     }
   }
 
+  async findOwn(
+    customerId: string,
+    orderId: string,
+  ): Promise<PaymentResponseDto> {
+    try {
+      const payment = await this.dataSource.manager.findOne(Payment, {
+        where: { orderId, customerId },
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      return this.response(payment);
+    } catch (error: unknown) {
+      this.logFailure('payments.read', error, { customerId, orderId });
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to retrieve payment. Please try again',
+      );
+    }
+  }
+
   private async deductStock(
     manager: EntityManager,
     items: OrderItem[],
