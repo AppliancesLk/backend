@@ -25,6 +25,17 @@ export class OrdersController {
   create(@Req() request: AuthenticatedRequest, @Body() dto: CreateOrderDto) {
     return this.ordersService.create(this.customerId(request), dto);
   }
+  @Get()
+  list(@Req() request: AuthenticatedRequest) {
+    return this.ordersService.findAllOwn(this.customerId(request));
+  }
+  @Get(':id/status')
+  status(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ordersService.findOwnStatus(this.customerId(request), id);
+  }
   @Get(':id')
   get(
     @Req() request: AuthenticatedRequest,
