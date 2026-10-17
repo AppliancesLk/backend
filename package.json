@@ -6,6 +6,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test:themes:integration": "npm run build && node test/seasonal-themes.integration.cjs",
+    "test:themes": "npm test -- --runInBand src/storefront-theme",
     "test:commerce:integration": "npm run build && node test/commerce-accounts.integration.cjs",
     "test:chat:integration": "npm run build && node test/chat.integration.cjs",
     "email:test": "npm run build && node scripts/test-email.cjs",
