@@ -23,3 +23,9 @@ export interface OrderResponseDto {
     lineTotal: string;
   }[];
 }
+
+export interface OrderStatusResponseDto {
+  id: string;
+  status: OrderStatus;
+  updatedAt: Date;
+}

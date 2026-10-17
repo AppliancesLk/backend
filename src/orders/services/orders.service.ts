@@ -11,7 +11,10 @@ import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { CartService } from '../../cart/services/cart.service';
 import { CheckoutService } from '../../checkout/services/checkout.service';
 import { CreateOrderDto } from '../dto/create-order.dto';
-import { OrderResponseDto } from '../dto/order-response.dto';
+import {
+  OrderResponseDto,
+  OrderStatusResponseDto,
+} from '../dto/order-response.dto';
 import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { OrderStatus } from '../enums/order-status.enum';
@@ -141,14 +144,67 @@ export class OrdersService {
     }
   }
 
+  async findAllOwn(customerId: string): Promise<OrderResponseDto[]> {
+    try {
+      const orders = await this.dataSource.manager.find(Order, {
+        where: { customerId },
+        relations: { items: true },
+        order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
+      });
+      return orders.map((order) => this.response(order));
+    } catch (error: unknown) {
+      return this.retrievalFailure(error, 'orders.list', customerId);
+    }
+  }
+
   async findOwn(customerId: string, id: string): Promise<OrderResponseDto> {
-    const order = await this.dataSource.manager.findOne(Order, {
-      where: { id, customerId },
-      relations: { items: true },
-      order: { items: { id: 'ASC' } },
+    try {
+      const order = await this.dataSource.manager.findOne(Order, {
+        where: { id, customerId },
+        relations: { items: true },
+        order: { items: { id: 'ASC' } },
+      });
+      if (!order) throw new NotFoundException('Order not found');
+      return this.response(order);
+    } catch (error: unknown) {
+      return this.retrievalFailure(error, 'orders.detail', customerId, id);
+    }
+  }
+
+  async findOwnStatus(
+    customerId: string,
+    id: string,
+  ): Promise<OrderStatusResponseDto> {
+    try {
+      const order = await this.dataSource.manager.findOne(Order, {
+        where: { id, customerId },
+        select: { id: true, status: true, updatedAt: true },
+      });
+      if (!order) throw new NotFoundException('Order not found');
+      return { id: order.id, status: order.status, updatedAt: order.updatedAt };
+    } catch (error: unknown) {
+      return this.retrievalFailure(error, 'orders.status', customerId, id);
+    }
+  }
+
+  private retrievalFailure(
+    error: unknown,
+    operation: string,
+    customerId: string,
+    orderId?: string,
+  ): never {
+    if (error instanceof HttpException) throw error;
+    // Raw query errors can contain SQL parameters and personal data.
+    this.logger.error({
+      operation,
+      customerId,
+      orderId,
+      outcome: 'failed',
+      statusCode: 500,
     });
-    if (!order) throw new NotFoundException('Order not found');
-    return this.response(order);
+    throw new InternalServerErrorException(
+      'Unable to retrieve orders. Please try again',
+    );
   }
 
   private findByKey(
