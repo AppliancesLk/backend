@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   UseGuards,
@@ -19,17 +20,22 @@ import { CategoriesService } from '../services/categories.service';
 
 @Controller('categories')
 export class CategoriesController {
-  constructor(
-    private readonly categoriesService: CategoriesService,
-  ) {}
+  constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
   findAll() {
     return this.categoriesService.findAll();
   }
 
+  @Get('admin/all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  findAllForAdmin() {
+    return this.categoriesService.findAll(true);
+  }
+
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.categoriesService.findById(id);
   }
 
@@ -44,12 +50,9 @@ export class CategoriesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(
-      id,
-      updateCategoryDto,
-    );
+    return this.categoriesService.update(id, updateCategoryDto);
   }
 }

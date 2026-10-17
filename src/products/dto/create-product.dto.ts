@@ -3,6 +3,8 @@ import {
   IsBoolean,
   IsNotEmpty,
   IsNumber,
+  IsInt,
+  Max,
   IsObject,
   IsOptional,
   IsString,
@@ -19,9 +21,16 @@ export class CreateProductDto {
   @IsNotEmpty()
   SKU: string;
 
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(9999999999.99)
   @Min(0)
   price: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(2147483647)
+  stockQty?: number;
 
   @IsUUID()
   categoryID: string;
