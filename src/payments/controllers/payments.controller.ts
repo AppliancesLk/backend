@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
+  Param,
+  ParseUUIDPipe,
   Post,
   Req,
   UnauthorizedException,
@@ -39,5 +42,16 @@ export class PaymentsController {
   @HttpCode(200)
   notify(@Body() dto: PayHereNotificationDto) {
     return this.paymentsService.handleNotification(dto);
+  }
+
+  @Get('orders/:orderId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.CUSTOMER)
+  getForOrder(
+    @Req() request: AuthenticatedRequest,
+    @Param('orderId', ParseUUIDPipe) orderId: string,
+  ) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.paymentsService.findOwn(request.user.sub, orderId);
   }
 }
