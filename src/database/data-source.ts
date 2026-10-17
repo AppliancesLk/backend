@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { AuthSession } from '../auth/entities/auth-session.entity';
 import { DataSource } from 'typeorm';
 
 import { Category } from '../categories/entities/category.entity';
@@ -9,11 +10,7 @@ import { User } from '../users/entities/user.entity';
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
-  entities: [
-    User,
-    Category,
-    Product,
-  ],
+  entities: [User, AuthSession, Category, Product],
 
   migrations: ['src/database/migrations/*.ts'],
 });
