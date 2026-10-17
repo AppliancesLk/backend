@@ -17,6 +17,7 @@ import { UserRole } from '../../users/enums/user-role.enum';
 import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
 import { ApproveRepairDto } from '../dto/approve-repair.dto';
 import { RejectRepairDto } from '../dto/reject-repair.dto';
+import { UpdateRepairStatusDto } from '../dto/update-repair-status.dto';
 import { RepairsService } from '../services/repairs.service';
 
 @Controller('repairs')
@@ -58,5 +59,38 @@ export class RepairsController {
   @Roles(UserRole.ADMIN)
   reject(@Param('id') id: string, @Body() dto: RejectRepairDto) {
     return this.repairsService.reject(id, dto.rejectionReason);
+  }
+
+  // Repairer endpoints
+  @Get('repairer')
+  @Roles(UserRole.REPAIRER)
+  findAllForRepairer(@Req() request: AuthenticatedRequest) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.findAllForRepairer(request.user.sub);
+  }
+
+  @Get('repairer/:id')
+  @Roles(UserRole.REPAIRER)
+  findOneForRepairer(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.findOneForRepairer(id, request.user.sub);
+  }
+
+  @Patch('repairer/:id/status')
+  @Roles(UserRole.REPAIRER)
+  updateRepairStatus(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() dto: UpdateRepairStatusDto,
+  ) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.updateRepairStatus(
+      id,
+      request.user.sub,
+      dto.status,
+    );
   }
 }
