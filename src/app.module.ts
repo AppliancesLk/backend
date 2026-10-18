@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { MediaModule } from './media/media.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { BannersModule } from './banners/banners.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -18,6 +20,8 @@ import { RepairsModule } from './repairs/repairs.module';
 
 @Module({
   imports: [
+    MediaModule,
+    ReviewsModule,
     BannersModule,
     ConfigModule.forRoot({
       isGlobal: true,
