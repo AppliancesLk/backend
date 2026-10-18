@@ -19,10 +19,20 @@ import { UpdateProductStockDto } from '../dto/update-product-stock.dto';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { ProductsService } from '../services/products.service';
 import { Query } from '@nestjs/common';
+import { ProductQueryDto } from '../dto/product-query.dto';
+import { ProductCatalogService } from '../services/product-catalog.service';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly catalog: ProductCatalogService,
+  ) {}
+
+  @Get('catalog')
+  findCatalog(@Query() query: ProductQueryDto) {
+    return this.catalog.find(query);
+  }
 
   @Get()
   findAll(@Query('categoryId') categoryId?: string) {
