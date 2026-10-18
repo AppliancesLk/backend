@@ -23,6 +23,9 @@ import { OrderStatus } from '../enums/order-status.enum';
 
 @Injectable()
 export class OrdersService {
+  async hasDeliveredPurchase(customerId:string,productId:string):Promise<boolean> {
+    return this.dataSource.getRepository(Order).createQueryBuilder('order').innerJoin('order.items','item').where('order.customerId = :customerId',{customerId}).andWhere('order.status = :status',{status:OrderStatus.DELIVERED}).andWhere('item.productId = :productId',{productId}).getExists();
+  }
   private readonly logger = new Logger(OrdersService.name);
   constructor(
     private readonly dataSource: DataSource,

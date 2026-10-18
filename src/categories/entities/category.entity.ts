@@ -16,30 +16,22 @@ export class Category {
 
   @Column()
   name: string;
+  @Column({ type: 'varchar', length: 2048, nullable: true })
+  imageUrl: string | null;
 
   @Column({ default: true })
   isActive: boolean;
 
-  @ManyToOne(
-    () => Category,
-    (category) => category.children,
-    {
-      nullable: true,
-      onDelete: 'SET NULL',
-    },
-  )
+  @ManyToOne(() => Category, (category) => category.children, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'parentID' })
   parent: Category | null;
 
-  @OneToMany(
-    () => Category,
-    (category) => category.parent,
-  )
+  @OneToMany(() => Category, (category) => category.parent)
   children: Category[];
 
-  @OneToMany(
-    () => Product,
-    (product) => product.category,
-  )
+  @OneToMany(() => Product, (product) => product.category)
   products: Product[];
 }
