@@ -132,6 +132,7 @@ export class ProductCatalogService {
           .map((category) => ({
             categoryID: category.categoryID,
             name: category.name,
+            imageUrl:category.imageUrl,
             parentId: category.parent?.categoryID ?? null,
             count: descendants(category.categoryID).reduce(
               (sum, id) => sum + (counts.get(id) ?? 0),

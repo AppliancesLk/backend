@@ -13,6 +13,8 @@ import {
 } from 'class-validator';
 
 import { ProductCatalogFieldsDto } from './product-catalog-fields.dto';
+import { ArrayMaxSize, Matches, MaxLength } from 'class-validator';
+import { IMAGE_URL_PATTERN } from '../../common/utils/image-url';
 export class CreateProductDto extends ProductCatalogFieldsDto {
   @IsString()
   @IsNotEmpty()
@@ -38,6 +40,9 @@ export class CreateProductDto extends ProductCatalogFieldsDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
+  @MaxLength(2048, { each: true })
+  @Matches(IMAGE_URL_PATTERN, { each: true })
   @IsString({ each: true })
   images?: string[];
 
