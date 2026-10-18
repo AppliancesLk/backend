@@ -4,6 +4,7 @@ import { RepairStatus } from '../../../repairs/enums/repair-status.enum';
 import type { OrderItem } from '../../../orders/entities/order-item.entity';
 import { formatMinorUnits, toMinorUnits } from '../../../common/utils/money';
 import { EMAIL_BRAND_CID, EMAIL_BRAND_PNG } from '../email-brand';
+import type { PromotionNotice } from '../../types/notification.types';
 
 export function escapeHtml(
   value: string | number | boolean | null | undefined,
@@ -111,6 +112,19 @@ function renderItems(items: EmailOrderItem[]): string {
       .join('')}</table>`;
 }
 
+function renderFeaturedProducts(
+  products: NonNullable<PromotionNotice['products']>,
+) {
+  if (!products.length) return '';
+  return `<h2 style="font-family:${displayFont};font-size:20px;margin:28px 0 12px">Selected for you</h2>${products
+    .map((product) => {
+      const image = product.images.map(emailImageUrl).find(Boolean);
+      const link = safeEmailLink(product.link);
+      return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border:1px solid ${colors.border};border-radius:10px;margin:0 0 14px"><tr><td width="100" valign="top" style="padding:16px 0 16px 12px">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" width="88" height="88" style="display:block;width:88px;height:88px;object-fit:contain;border:0">` : `<div style="width:88px;padding:28px 0;background:${colors.page};text-align:center;font-size:11px;color:${colors.muted}">No image</div>`}</td><td valign="middle" style="padding:16px;overflow-wrap:anywhere"><p style="font-size:16px;font-weight:600;line-height:23px;margin:0 0 8px;color:${colors.text}">${escapeHtml(product.name)}</p><p style="font-size:18px;font-weight:700;margin:0 0 10px;color:${colors.primary}">${escapeHtml(formatEmailMoney(product.price))}</p>${link ? `<a href="${escapeHtml(link)}" style="font-size:13px;font-weight:600;color:${colors.primary};text-decoration:underline">View product &rarr;</a>` : ''}</td></tr></table>`;
+    })
+    .join('')}`;
+}
+
 export function emailLayout(input: {
   subject: string;
   title: string;
@@ -123,6 +137,10 @@ export function emailLayout(input: {
   reference?: { value: string; detail: string };
   items?: EmailOrderItem[];
   total?: string;
+  preheader?: string;
+  featuredProducts?: PromotionNotice['products'];
+  closingNote?: string;
+  preserveLineBreaks?: boolean;
 }): EmailContent {
   const rows = input.rows ?? [];
   const paragraphs = input.paragraphs ?? [];
@@ -163,14 +181,19 @@ export function emailLayout(input: {
       ),
       ...(input.total ? [`Order total: ${formatEmailMoney(input.total)}`] : []),
       ...paragraphs,
+      ...(input.featuredProducts ?? []).map(
+        (product) =>
+          `${product.name}\n${formatEmailMoney(product.price)}${product.link ? `\n${product.link}` : ''}`,
+      ),
       ...(link ? [`${input.buttonText ?? 'View details'}: ${link}`] : []),
+      ...(input.closingNote ? [input.closingNote] : []),
       'Appliances.lk — Thank you for choosing us.',
     ].join('\n\n'),
     html: `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escapeHtml(subject)}</title>
 <style>@media only screen and (max-width:480px){.email-outer{padding:16px 8px!important}.email-padding{padding-left:20px!important;padding-right:20px!important}.email-title{font-size:26px!important;line-height:32px!important}.email-action{width:100%!important}.email-total-label,.email-total-value{display:block!important;width:auto!important;text-align:left!important}.email-total-label{padding:16px 16px 0!important}.email-total-value{padding:4px 16px 16px!important}}</style></head>
 <body style="margin:0;padding:0;background:${colors.page};font-family:${bodyFont};color:${colors.text};-webkit-text-size-adjust:100%">
-<div style="display:none;font-size:1px;line-height:1px;color:${colors.page};max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${escapeHtml(input.message)}</div>
+<div style="display:none;font-size:1px;line-height:1px;color:${colors.page};max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${escapeHtml(input.preheader ?? input.message)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${colors.page}"><tr><td class="email-outer" align="center" style="padding:40px 16px">
 <!--[if mso]><table role="presentation" width="640" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid ${colors.border};border-top:4px solid ${colors.primary};border-radius:12px;table-layout:fixed">
@@ -178,11 +201,13 @@ export function emailLayout(input: {
 <tr><td class="email-padding" style="padding:32px;line-height:1.6;overflow-wrap:anywhere;word-break:break-word">
 <h1 class="email-title" style="font-family:${displayFont};font-size:32px;line-height:38px;letter-spacing:-0.7px;font-weight:700;margin:0 0 24px;color:${colors.text}">${escapeHtml(input.title)}</h1>
 <p style="margin:0 0 12px;font-size:16px">Hello ${escapeHtml(input.name)},</p>
-<p style="margin:0;font-size:16px;color:${colors.secondary}">${escapeHtml(input.message)}</p>
+<p style="margin:0;font-size:16px;color:${colors.secondary}">${input.preserveLineBreaks ? escapeHtml(input.message).replace(/\r\n|\r|\n/g, '<br>') : escapeHtml(input.message)}</p>
 ${input.reference ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border:1px solid #8A989C;border-radius:8px;background:${colors.page};table-layout:fixed"><tr><td style="padding:16px;border-left:3px solid ${colors.accent};border-radius:8px"><p style="margin:0 0 4px;font-family:${displayFont};font-size:20px;font-weight:600;color:${colors.text}">${escapeHtml(input.reference.value)}</p><p style="margin:0;font-size:12px;color:${colors.muted};word-break:break-all">Full reference: ${escapeHtml(input.reference.detail)}</p></td></tr></table>` : ''}
 ${details}${renderItems(items)}
 ${input.total ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;background:#E8F6F5;border-radius:8px;table-layout:fixed"><tr><td class="email-total-label" style="padding:16px;font-size:14px;font-weight:600;color:${colors.primary};width:30%">Order total</td><td class="email-total-value" align="right" style="padding:16px;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:${colors.text};overflow-wrap:anywhere">${escapeHtml(formatEmailMoney(input.total))}</td></tr></table>` : ''}
-${paragraphs.map((paragraph) => `<p style="margin:24px 0 0;font-size:14px;color:${colors.secondary}">${escapeHtml(paragraph)}</p>`).join('')}${action}
+${paragraphs.map((paragraph) => `<p style="margin:24px 0 0;font-size:14px;color:${colors.secondary}">${escapeHtml(paragraph)}</p>`).join('')}
+${renderFeaturedProducts(input.featuredProducts ?? [])}${action}
+${input.closingNote ? `<p style="margin:24px 0 0;font-size:12px;line-height:20px;color:${colors.muted};white-space:pre-line">${escapeHtml(input.closingNote)}</p>` : ''}
 </td></tr>
 <tr><td class="email-padding" style="padding:24px 32px;background:${colors.text};border-radius:0 0 10px 10px"><p style="margin:0 0 6px;font-family:${displayFont};font-size:18px;font-weight:600;color:#E9EEEF">Appliances<span style="color:#5EC0BB">.lk</span></p><p style="margin:0;font-size:13px;line-height:20px;color:#B3BEC1">Thank you for choosing us.</p></td></tr>
 </table><!--[if mso]></td></tr></table><![endif]-->
