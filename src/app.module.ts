@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BannersModule } from './banners/banners.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -17,6 +18,7 @@ import { RepairsModule } from './repairs/repairs.module';
 
 @Module({
   imports: [
+    BannersModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
