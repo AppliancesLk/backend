@@ -13,7 +13,8 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-export class UpdateProductDto {
+import { ProductCatalogFieldsDto } from './product-catalog-fields.dto';
+export class UpdateProductDto extends ProductCatalogFieldsDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @Transform(({ value }: { value: unknown }) =>
     typeof value === 'string' ? value.trim() : value,

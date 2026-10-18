@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -99,6 +100,10 @@ export class ProductsService {
   }
 
   async create(createProductDto: CreateProductDto): Promise<Product> {
+    this.validateComparePrice(
+      createProductDto.price,
+      createProductDto.compareAtPrice,
+    );
     const existingProduct = await this.productsRepository.findOne({
       where: {
         SKU: createProductDto.SKU,
@@ -115,6 +120,10 @@ export class ProductsService {
 
     const product = this.productsRepository.create({
       name: createProductDto.name,
+      brand: createProductDto.brand ?? null,
+      subtitle: createProductDto.subtitle ?? '',
+      badge: createProductDto.badge ?? null,
+      compareAtPrice: createProductDto.compareAtPrice ?? null,
       SKU: createProductDto.SKU,
       price: createProductDto.price,
       stockQty: createProductDto.stockQty ?? 0,
@@ -135,6 +144,13 @@ export class ProductsService {
 
   async update(productID: string, dto: UpdateProductDto): Promise<Product> {
     const product = await this.findById(productID, true);
+    if (dto.price !== undefined || dto.compareAtPrice !== undefined)
+      this.validateComparePrice(
+        dto.price ?? Number(product.price),
+        dto.compareAtPrice !== undefined
+          ? dto.compareAtPrice
+          : product.compareAtPrice,
+      );
     if (dto.SKU !== undefined && dto.SKU !== product.SKU) {
       const duplicate = await this.productsRepository.findOne({
         where: { SKU: dto.SKU },
@@ -157,6 +173,13 @@ export class ProductsService {
     return this.findById(productID, true);
   }
 
+  private validateComparePrice(price: number, compareAtPrice?: number | null) {
+    if (compareAtPrice != null && Number(compareAtPrice) <= price)
+      throw new BadRequestException(
+        'Original price must be greater than selling price',
+      );
+  }
+
   private async persistProduct(
     changes: DeepPartial<Product>,
     operation: 'create' | 'update',
@@ -175,6 +198,13 @@ export class ProductsService {
           code?: string;
           constraint?: string;
         };
+        if (
+          driverError.code === '23514' &&
+          driverError.constraint === 'CHK_product_compare_price'
+        )
+          throw new BadRequestException(
+            'Original price must be greater than selling price',
+          );
         // The existing products migration names the SKU uniqueness constraint.
         if (
           driverError.code === '23505' &&
