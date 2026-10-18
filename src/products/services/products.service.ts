@@ -120,6 +120,10 @@ export class ProductsService {
 
     const product = this.productsRepository.create({
       name: createProductDto.name,
+      description: createProductDto.description ?? '',
+      features: createProductDto.features ?? [],
+      boxContents: createProductDto.boxContents ?? [],
+      warranty: createProductDto.warranty ?? '',
       brand: createProductDto.brand ?? null,
       subtitle: createProductDto.subtitle ?? '',
       badge: createProductDto.badge ?? null,
@@ -178,6 +182,41 @@ export class ProductsService {
       throw new BadRequestException(
         'Original price must be greater than selling price',
       );
+  }
+  async lockForReview(
+    productID: string,
+    manager: EntityManager,
+    allowHidden = false,
+  ) {
+    const product = await manager
+      .getRepository(Product)
+      .findOne({ where: { productID }, lock: { mode: 'pessimistic_write' } });
+    if (!product) throw new NotFoundException('Product not found');
+    if (!allowHidden) {
+      // The relation is loaded separately to avoid locking the category table.
+      if (!product.isActive) throw new NotFoundException('Product not found');
+      const related = await manager
+        .getRepository(Product)
+        .findOne({ where: { productID }, relations: { category: true } });
+      if (
+        !related ||
+        !(await this.categoriesService.findAll(false, manager)).some(
+          (category) => category.categoryID === related.category.categoryID,
+        )
+      )
+        throw new NotFoundException('Product not found');
+    }
+    return product;
+  }
+  async setReviewSummary(
+    productID: string,
+    average: number,
+    count: number,
+    manager: EntityManager,
+  ) {
+    await manager
+      .getRepository(Product)
+      .update({ productID }, { ratingAverage: average, ratingCount: count });
   }
 
   private async persistProduct(
