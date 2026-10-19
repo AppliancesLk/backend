@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { createHash, randomBytes, randomUUID } = require('node:crypto');
@@ -60,9 +61,11 @@ let lastOperation = 'initialization';
   async function account(role) {
     const username = `notify_${role}_${suffix}`,
       password = randomBytes(12).toString('hex');
-    const response = await call('post', '/auth/register')
-      .send({ username, password, email: `${username}@example.com` })
-      .expect(201);
+    const response = await registerVerified(app, {
+      username,
+      password,
+      email: `${username}@example.com`,
+    });
     const user = {
       ...response.body.user,
       password,
@@ -138,7 +141,7 @@ let lastOperation = 'initialization';
       .send({ username: customer.username, password: customer.password })
       .expect(201);
     check(
-      (await count(customer, 'LOGIN')) === 1,
+      (await count(customer, 'LOGIN')) === 2,
       'successful login notification',
     );
     smtpFails = true;
