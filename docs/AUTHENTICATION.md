@@ -1,6 +1,6 @@
 # Authentication
 
-Frontend pages use React Context (`useAuth`) and cookie sessions. Shop routes `/products` and `/products/:id` remain public. `/account` needs a session; `/admin` and `/repairer` additionally require their respective roles. The navigation provides account access and sign-out on every page. Workspace pages are placeholders for future management features.
+Frontend pages use React Context (`useAuth`) and cookie sessions. Shop routes `/products` and `/products/:id` remain public. `/account` needs a session; `/admin` and `/repairer` additionally require their respective roles. The navigation provides account access and sign-out on every page. The admin workspace includes catalog and inventory management; the repairer workspace remains a placeholder for future repair features.
 
 ## Local setup
 
@@ -13,7 +13,7 @@ Use localhost consistently (do not mix it with 127.0.0.1). `FRONTEND_URL` defaul
 
 ## Roles and existing accounts
 
-Registration always creates CUSTOMER accounts; role fields supplied by a client are rejected. Only a trusted database operator should assign ADMIN or REPAIRER, for example using a parameterized update targeting a verified account ID. There is no public promotion endpoint or default admin password. Existing accounts receive a deterministic `user_` username during migration and can still sign in using their existing email and password.
+Registration always creates CUSTOMER accounts; role fields supplied by a client are rejected. Only a trusted database operator should assign ADMIN or REPAIRER, for example using a parameterized update targeting a verified account ID. There is no public promotion endpoint. The explicit development admin seed is documented in ADMIN_MANAGEMENT.md. Existing accounts receive a deterministic `user_` username during migration and can still sign in using their existing email and password.
 
 Use `useAuth()` to access `user`, `loading`, `error`, `signIn`, `signUp`, `signOut`, `refresh`, and `hasRole`. Nest new protected routes under `ProtectedRoute`, optionally passing `roles`. Always enforce permissions in the backend using the existing authentication and roles guards too.
 

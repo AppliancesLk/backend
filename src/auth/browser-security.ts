@@ -11,10 +11,13 @@ export function browserSecurity(
   next: NextFunction,
 ) {
   res.setHeader('Cache-Control', 'no-store');
+  const payHereNotification =
+    req.method === 'POST' && req.path === '/payments/payhere/notify';
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     if (
-      (req.headers.origin && req.headers.origin !== frontendOrigin()) ||
-      req.headers['x-requested-with'] !== 'XMLHttpRequest'
+      !payHereNotification &&
+      ((req.headers.origin && req.headers.origin !== frontendOrigin()) ||
+        req.headers['x-requested-with'] !== 'XMLHttpRequest')
     ) {
       res.status(403).json({ message: 'Request origin could not be verified' });
       return;

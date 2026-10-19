@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { MediaModule } from './media/media.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { BannersModule } from './banners/banners.module';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -8,10 +11,18 @@ import { getDatabaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
+import { OrdersModule } from './orders/orders.module';
+import { CheckoutModule } from './checkout/checkout.module';
+import { CartModule } from './cart/cart.module';
 import { ProductsModule } from './products/products.module';
+import { PaymentsModule } from './payments/payments.module';
+import { RepairsModule } from './repairs/repairs.module';
 
 @Module({
   imports: [
+    MediaModule,
+    ReviewsModule,
+    BannersModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -28,6 +39,11 @@ import { ProductsModule } from './products/products.module';
     CategoriesModule,
 
     ProductsModule,
+    CartModule,
+    CheckoutModule,
+    OrdersModule,
+    PaymentsModule,
+    RepairsModule,
   ],
 
   controllers: [AppController],
