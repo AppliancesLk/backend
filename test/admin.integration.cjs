@@ -8,6 +8,7 @@ const { randomBytes } = require('node:crypto');
   const { configureApp } = require('../dist/app.setup');
   const app = await NestFactory.create(AppModule, { logger: ['error'] });
   configureApp(app);
+  require('./helpers/mock-email.cjs').mockEmail(app);
   await app.init();
   const server = app.getHttpServer();
   const db = app.get(DataSource);

@@ -13,6 +13,7 @@ import { AuthSession } from '../entities/auth-session.entity';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { sessionDuration } from '../session.config';
+import { NotificationService } from '../../notification/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     @InjectRepository(AuthSession)
     private readonly sessions: Repository<AuthSession>,
+    private readonly notifications: NotificationService,
   ) {}
 
   publicUser(user: User) {
@@ -48,7 +50,9 @@ export class AuthService {
         dto.username,
         hash,
       );
-      return await this.createSession(user);
+      const session = await this.createSession(user);
+      await this.notifications.sendWelcomeEmail(user.id);
+      return session;
     } catch (error) {
       if ((error as { code?: string }).code === '23505')
         throw new ConflictException('Username or email is already registered');
@@ -68,7 +72,9 @@ export class AuthService {
     ) {
       throw new UnauthorizedException('Invalid username or password');
     }
-    return this.createSession(user);
+    const session = await this.createSession(user);
+    await this.notifications.sendLoginNotification(user.id);
+    return session;
   }
 
   private hash(token: string) {

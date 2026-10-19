@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { Notification } from '../notification/entities/notification.entity';
 import { AiConversation } from '../ai/entities/ai-conversation.entity';
 import { AiMessage } from '../ai/entities/ai-message.entity';
 import { ProductReview } from '../reviews/entities/product-review.entity';
@@ -21,6 +22,7 @@ export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
   entities: [
+    Notification,
     AiConversation,
     AiMessage,
     ProductReview,
