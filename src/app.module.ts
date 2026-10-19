@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { AiModule } from './ai/ai.module';
 import { MediaModule } from './media/media.module';
@@ -22,6 +23,7 @@ import { RepairsModule } from './repairs/repairs.module';
 
 @Module({
   imports: [
+    ChatModule,
     NotificationModule,
     AiModule,
     MediaModule,
