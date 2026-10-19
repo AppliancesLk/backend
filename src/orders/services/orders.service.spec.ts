@@ -12,6 +12,7 @@ import { OrderItem } from '../entities/order-item.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
 import { OrdersService } from './orders.service';
+import { NotificationService } from '../../notification/notification.service';
 
 describe('Order creation', () => {
   const builder = {
@@ -118,6 +119,7 @@ describe('Order creation', () => {
       dataSource as unknown as DataSource,
       cart as unknown as CartService,
       checkout as unknown as CheckoutService,
+      { sendOrderCreatedEmail: jest.fn() } as unknown as NotificationService,
     );
   });
   afterEach(() => jest.restoreAllMocks());
