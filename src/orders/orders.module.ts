@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { CartModule } from '../cart/cart.module';
@@ -10,6 +11,7 @@ import { AdminOrdersController } from './controllers/admin-orders.controller';
 import { OrdersService } from './services/orders.service';
 @Module({
   imports: [
+    NotificationModule,
     TypeOrmModule.forFeature([Order, OrderItem]),
     AuthModule,
     CartModule,
