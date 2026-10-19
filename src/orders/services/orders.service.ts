@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { NotificationService } from '../../notification/notification.service';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { CartService } from '../../cart/services/cart.service';
 import { CheckoutService } from '../../checkout/services/checkout.service';
@@ -31,6 +32,7 @@ export class OrdersService {
     private readonly dataSource: DataSource,
     private readonly cartService: CartService,
     private readonly checkoutService: CheckoutService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -130,6 +132,8 @@ export class OrdersService {
         orderId: result.order.id,
         outcome: result.replayed ? 'replayed' : 'created',
       });
+      if (!result.replayed)
+        await this.notifications.sendOrderCreatedEmail(result.order);
       return this.response(result.order);
     } catch (error: unknown) {
       const context = {
@@ -236,7 +240,7 @@ export class OrdersService {
     status: OrderStatus,
   ): Promise<AdminOrderResponseDto> {
     try {
-      const previous = await this.dataSource.transaction(async (manager) => {
+      const change = await this.dataSource.transaction(async (manager) => {
         const order = await manager.findOne(Order, {
           where: { id },
           lock: { mode: 'pessimistic_write' },
@@ -251,16 +255,21 @@ export class OrdersService {
           order.status = status;
           await manager.save(order);
         }
-        return from;
+        return { previous: from, order };
       });
       this.logger.log({
         operation: 'orders.admin.status.update',
         adminId,
         orderId: id,
-        previousStatus: previous,
+        previousStatus: change.previous,
         status,
-        outcome: previous === status ? 'unchanged' : 'updated',
+        outcome: change.previous === status ? 'unchanged' : 'updated',
       });
+      if (change.previous !== status)
+        await this.notifications.sendOrderStatusUpdatedEmail(
+          change.order,
+          change.previous,
+        );
       return this.findForAdmin(id);
     } catch (error: unknown) {
       const context = {

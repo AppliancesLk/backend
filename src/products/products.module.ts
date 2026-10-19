@@ -13,6 +13,6 @@ import { ProductCatalogService } from './services/product-catalog.service';
   imports: [TypeOrmModule.forFeature([Product]), CategoriesModule, AuthModule],
   controllers: [ProductsController],
   providers: [ProductsService, ProductCatalogService],
-  exports: [ProductsService],
+  exports: [ProductsService, ProductCatalogService],
 })
 export class ProductsModule {}

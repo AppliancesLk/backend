@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from './notification/notification.module';
+import { AiModule } from './ai/ai.module';
 import { MediaModule } from './media/media.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { BannersModule } from './banners/banners.module';
@@ -20,6 +22,8 @@ import { RepairsModule } from './repairs/repairs.module';
 
 @Module({
   imports: [
+    NotificationModule,
+    AiModule,
     MediaModule,
     ReviewsModule,
     BannersModule,

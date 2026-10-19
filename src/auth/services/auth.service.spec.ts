@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { AuthSession } from '../entities/auth-session.entity';
 import { UserRole } from '../../users/enums/user-role.enum';
 import { sessionCookieOptions } from '../session.config';
+import { NotificationService } from '../../notification/notification.service';
 
 describe('Cookie authentication', () => {
   const user = {
@@ -18,6 +19,7 @@ describe('Cookie authentication', () => {
   const service = new AuthService(
     users as unknown as UsersService,
     sessions as unknown as Repository<AuthSession>,
+    {} as NotificationService,
   );
   beforeEach(() => jest.clearAllMocks());
 

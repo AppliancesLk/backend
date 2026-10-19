@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsBoolean,
   IsArray,
   IsIn,
   IsInt,
@@ -20,6 +21,10 @@ export const CATALOG_SORTS = [
   'newest',
 ] as const;
 export class ProductQueryDto {
+  @IsOptional()
+  @IsBoolean()
+  inStock?: boolean;
+
   @IsOptional()
   @IsString()
   @MaxLength(120)
