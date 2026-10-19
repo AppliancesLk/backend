@@ -6,6 +6,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test:ai": "npm test -- --runInBand src/ai",
+    "test:ai:integration": "npm run build && node test/ai.integration.cjs",
     "test:experience:integration": "npm run build && node test/product-experience.integration.cjs",
     "seed:catalog": "npm run build && node scripts/seed-catalog.cjs",
     "seed:catalog:check": "npm run build && node scripts/seed-catalog.cjs --dry-run",

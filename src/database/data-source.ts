@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { AiConversation } from '../ai/entities/ai-conversation.entity';
+import { AiMessage } from '../ai/entities/ai-message.entity';
 import { ProductReview } from '../reviews/entities/product-review.entity';
 import { BannerSection } from '../banners/entities/banner-section.entity';
 import { Order } from '../orders/entities/order.entity';
@@ -19,6 +21,8 @@ export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
 
   entities: [
+    AiConversation,
+    AiMessage,
     ProductReview,
     BannerSection,
     User,
