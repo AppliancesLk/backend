@@ -6,6 +6,10 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "test:experience:integration": "npm run build && node test/product-experience.integration.cjs",
+    "seed:catalog": "npm run build && node scripts/seed-catalog.cjs",
+    "seed:catalog:check": "npm run build && node scripts/seed-catalog.cjs --dry-run",
+    "test:catalog:integration": "npm run build && node test/catalog.integration.cjs",
     "build": "nest build",
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -23,7 +27,14 @@
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:run": "npm run typeorm -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
-    "test:auth:integration": "npm run build && node test/auth.integration.cjs"
+    "test:auth:integration": "npm run build && node test/auth.integration.cjs",
+    "seed:admin": "npm run build && node scripts/seed-admin.cjs",
+    "test:admin:integration": "npm run build && node test/admin.integration.cjs",
+    "test:cart:integration": "npm run build && node test/cart.integration.cjs",
+    "test:checkout:integration": "npm run build && node test/checkout.integration.cjs",
+    "test:orders:integration": "npm run build && node test/orders.integration.cjs",
+    "test:payments:integration": "npm run build && node test/payments.integration.cjs",
+    "test:repairs:integration": "npm run build && node test/repairs.integration.cjs"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -39,6 +50,7 @@
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.5",
     "typeorm": "^1.1.1"
   },
   "devDependencies": {
