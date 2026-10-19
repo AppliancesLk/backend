@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes, randomUUID } = require('node:crypto');
@@ -55,13 +56,11 @@ const { randomBytes, randomUUID } = require('node:crypto');
   };
   const createUser = async (name) => {
     const username = `ord_${name}_${suffix}`;
-    const result = await call('post', '/auth/register')
-      .send({
-        username,
-        email: `${username}@example.com`,
-        password: randomBytes(20).toString('hex'),
-      })
-      .expect(201);
+    const result = await registerVerified(app, {
+      username,
+      email: `${username}@example.com`,
+      password: randomBytes(20).toString('hex'),
+    });
     users.push(result.body.user.id);
     return {
       id: result.body.user.id,
@@ -319,7 +318,9 @@ const { randomBytes, randomUUID } = require('node:crypto');
       adminDetail.items.length === 2 && adminDetail.delivery.city === 'Colombo',
       'Admin detail returns purchase snapshots and delivery information',
     );
-    await call('get', `/admin/orders/${randomUUID()}`, admin.cookie).expect(404);
+    await call('get', `/admin/orders/${randomUUID()}`, admin.cookie).expect(
+      404,
+    );
     await call('get', '/admin/orders/bad', admin.cookie).expect(400);
     await call('patch', `/admin/orders/${created.id}/status`, alice.cookie)
       .send({ status: 'CANCELLED' })
@@ -336,7 +337,10 @@ const { randomBytes, randomUUID } = require('node:crypto');
         .send({ status: 'CANCELLED' })
         .expect(200)
     ).body;
-    check(cancelled.status === 'CANCELLED', 'Admin can persist a valid status transition');
+    check(
+      cancelled.status === 'CANCELLED',
+      'Admin can persist a valid status transition',
+    );
     check(
       (await call('get', `/orders/${created.id}`, alice.cookie)).body.status ===
         'CANCELLED',

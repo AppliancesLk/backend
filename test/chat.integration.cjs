@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const { randomBytes, randomUUID } = require('node:crypto');
 const request = require('supertest');
@@ -21,7 +22,7 @@ const { io } = require('socket.io-client');
   const check = (value, label) => { assert.ok(value, label); checks++; };
   const call = (method, path, cookie) => { const req = request(server)[method](path).set(headers); return cookie ? req.set('Cookie', cookie) : req; };
   async function account(role) {
-    const result = await call('post', '/auth/register').send({ username: `chat_${role}_${suffix}`, email: `chat_${role}_${suffix}@example.com`, password: randomBytes(15).toString('hex') }).expect(201);
+    const result = await registerVerified(app, { username: `chat_${role}_${suffix}`, email: `chat_${role}_${suffix}@example.com`, password: randomBytes(15).toString('hex') });
     users.push(result.body.user.id);
     if (role === 'admin' || role === 'repairer') await db.query('UPDATE users SET role=$1 WHERE id=$2', [role.toUpperCase(), result.body.user.id]);
     return { ...result.body.user, cookie: result.headers['set-cookie'][0].split(';')[0] };
