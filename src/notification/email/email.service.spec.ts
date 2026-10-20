@@ -95,6 +95,18 @@ describe('Gmail EmailService', () => {
     ])
       expect(logs).not.toContain(secret);
   });
+  it('forwards inline image buffers without enabling file or URL access', async () => {
+    const attachment = {
+      filename: 'logo.png',
+      content: Buffer.from('image-bytes'),
+      contentType: 'image/png',
+      cid: 'brand@appliances.lk',
+    };
+    await email.send({ ...request, attachments: [attachment] });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ attachments: [attachment] }),
+    );
+  });
   it('reports missing configuration without preventing the application from starting', async () => {
     delete process.env.EMAIL_APP_PASSWORD;
     expect(await email.send(request)).toEqual({
