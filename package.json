@@ -8,6 +8,7 @@
   "scripts": {
     "test:chat:integration": "npm run build && node test/chat.integration.cjs",
     "email:test": "npm run build && node scripts/test-email.cjs",
+    "email:preview": "npm run build && node scripts/preview-emails.cjs",
     "test:notifications": "npm test -- --runInBand src/notification",
     "test:notifications:integration": "npm run build && node test/notifications.integration.cjs",
     "test:ai": "npm test -- --runInBand src/ai",
