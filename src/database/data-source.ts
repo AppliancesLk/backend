@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { join } from 'node:path';
 import { ChatSession } from '../chat/entities/chat-session.entity';
 import { ChatMessage } from '../chat/entities/chat-message.entity';
 import { Notification } from '../notification/entities/notification.entity';
@@ -59,5 +60,8 @@ export const AppDataSource = new DataSource({
     PromotionRun,
   ],
 
-  migrations: ['src/database/migrations/*.ts'],
+  // ts-node uses source migrations; the container runs the compiled JavaScript.
+  migrations: [
+    join(__dirname, 'migrations', __filename.endsWith('.ts') ? '*.ts' : '*.js'),
+  ],
 });
