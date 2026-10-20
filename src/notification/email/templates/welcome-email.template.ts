@@ -1,4 +1,4 @@
-import { emailLayout } from './email-layout';
+import { accountLink, emailLayout } from './email-layout';
 export function welcomeEmailTemplate(name: string) {
   return emailLayout({
     subject: 'Welcome to Appliances.lk',
@@ -8,5 +8,7 @@ export function welcomeEmailTemplate(name: string) {
     paragraphs: [
       'You can now browse products, place orders, track your purchases, and request appliance repairs.',
     ],
+    link: accountLink('/products'),
+    buttonText: 'Explore products',
   });
 }

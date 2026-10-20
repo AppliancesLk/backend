@@ -53,6 +53,7 @@ export class EmailService implements OnModuleDestroy {
           subject: input.subject,
           html: input.html,
           text: input.text,
+          attachments: input.attachments,
         });
       if (!result.accepted?.length || result.rejected?.length)
         return this.failed('recipient_rejected', started);
