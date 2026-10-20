@@ -59,6 +59,8 @@ describe('Business notifications', () => {
     items: [
       {
         name: '<img onerror=bad()>',
+        SKU: 'AP-001',
+        images: ['https://images.example.com/product.jpg'],
         quantity: 1,
         unitPrice: '1234.50',
         lineTotal: '1234.50',
@@ -88,7 +90,7 @@ describe('Business notifications', () => {
     expect(email.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'account@example.com',
-        text: expect.stringContaining('LKR 1234.50'),
+        text: expect.stringContaining('LKR 1,234.50'),
       }),
     );
     expect(history.create).toHaveBeenCalledWith(
@@ -103,6 +105,9 @@ describe('Business notifications', () => {
       expect.objectContaining({ status: 'SENT', sentAt: expect.any(Date) }),
     );
     expect(email.send.mock.calls[0][0].html).not.toContain('<img onerror');
+    expect(email.send.mock.calls[0][0].html).toContain(
+      'https://images.example.com/product.jpg',
+    );
   });
   it('suppresses the same order status without creating or sending anything', async () => {
     expect(

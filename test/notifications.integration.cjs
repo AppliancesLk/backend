@@ -169,7 +169,7 @@ let lastOperation = 'initialization';
         price: 100,
         stockQty: 10,
         categoryID: categoryId,
-        images: [],
+        images: ['https://images.example.com/notification-washer.jpg'],
       })
       .expect(201);
     const product = productResponse.body;
@@ -179,6 +179,17 @@ let lastOperation = 'initialization';
       (await count(customer, 'ORDER_CREATED')) === 1,
       'order-created email after persistence',
     );
+    const confirmation = captured.find((message) =>
+      message.html.includes(first.data.id),
+    );
+    check(
+      confirmation?.html.includes(
+        'https://images.example.com/notification-washer.jpg',
+      ) &&
+        confirmation.text.includes('LKR 100.00') &&
+        confirmation.attachments?.[0]?.cid,
+      'order confirmation contains saved product image, price and inline logo',
+    );
     await call('post', '/orders', customer.cookie).send(first.body).expect(201);
     check(
       (await count(customer, 'ORDER_CREATED')) === 1,
@@ -186,7 +197,7 @@ let lastOperation = 'initialization';
     );
     check(
       captured
-        .filter((message) => message.subject.includes(first.data.id))
+        .filter((message) => message.html.includes(first.data.id))
         .every((message) => message.to === customer.email),
       'recipient uses account email, not delivery email',
     );
