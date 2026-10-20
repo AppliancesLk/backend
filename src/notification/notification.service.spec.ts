@@ -72,6 +72,9 @@ describe('Business notifications', () => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     users.findById.mockResolvedValue({
+      isActive: true,
+      emailVerifiedAt: new Date(),
+      deactivatedAt: null,
       username: '<User>',
       email: 'account@example.com',
     });
