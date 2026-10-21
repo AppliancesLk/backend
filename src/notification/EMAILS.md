@@ -1,6 +1,6 @@
 # Notification emails
 
-All twelve notification types use the shared Lagoon and Saffron layout in
+All fourteen notification types use the shared Lagoon and Saffron layout in
 `email/templates/email-layout.ts`, matching `frontend/design.md`. The PNG plug
 mark is embedded with a CID attachment so it does not require a hosted logo.
 The wordmark, message, details and action remain readable with images disabled.
@@ -34,3 +34,5 @@ Run `npm run test:notifications` for mocked unit tests, and
 `npm run test:notifications:integration` for the HTTP/database flows with SMTP
 mocked and generated test records cleaned up afterward. `npm run email:test` is
 the separate real-delivery smoke test; it is not needed to preview templates.
+
+Email verification and password reset use the same notification service and branded layout. Account links keep the single-use token in a URL fragment, then submit it in a POST body. Notification history stores subjects and delivery state, never the link or raw token.
