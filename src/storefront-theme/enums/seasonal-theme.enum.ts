@@ -1,0 +1,7 @@
+export enum SeasonalTheme {
+  DEFAULT = 'DEFAULT',
+  AVURUDU = 'AVURUDU',
+  CHRISTMAS = 'CHRISTMAS',
+  HALLOWEEN = 'HALLOWEEN',
+  EASTER = 'EASTER',
+}
