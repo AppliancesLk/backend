@@ -47,6 +47,11 @@ export type PaymentNotice = Pick<
   | 'status'
 >;
 export interface PromotionNotice {
+  subject?: string;
+  preheader?: string;
+  buttonText?: string;
+  footerNote?: string;
+  products?: { name: string; price: string; images: string[]; link?: string }[];
   title: string;
   description: string;
   productName?: string;
@@ -55,6 +60,7 @@ export interface PromotionNotice {
   validUntil?: string;
 }
 export interface NotificationResult {
-  status: NotificationStatus | 'DUPLICATE';
+  uncertain?: boolean;
+  status: NotificationStatus | 'DUPLICATE' | 'SKIPPED';
   notificationId?: string;
 }
