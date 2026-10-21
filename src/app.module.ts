@@ -22,6 +22,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { RepairsModule } from './repairs/repairs.module';
 import { AdminUsersModule } from './users/admin-users.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
+import { StorefrontThemeModule } from './storefront-theme/storefront-theme.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module';
     RepairsModule,
     AdminUsersModule,
     LoyaltyModule,
+    StorefrontThemeModule,
   ],
 
   controllers: [AppController],
