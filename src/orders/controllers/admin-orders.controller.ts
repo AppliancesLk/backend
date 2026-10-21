@@ -40,6 +40,11 @@ export class AdminOrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     if (!request.user?.sub) throw new UnauthorizedException();
-    return this.ordersService.updateStatus(request.user.sub, id, dto.status);
+    return this.ordersService.updateStatus(
+      request.user.sub,
+      id,
+      dto.status,
+      dto.paymentCollected,
+    );
   }
 }

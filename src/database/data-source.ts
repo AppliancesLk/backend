@@ -19,6 +19,9 @@ import { Product } from '../products/entities/product.entity';
 import { User } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { RepairTicket } from '../repairs/entities/repair-ticket.entity';
+import { AccountAction } from '../auth/entities/account-action.entity';
+import { OrderEvent } from '../orders/entities/order-event.entity';
+import { LoyaltyEntry } from '../loyalty/entities/loyalty-entry.entity';
 
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
@@ -41,6 +44,9 @@ export const AppDataSource = new DataSource({
     OrderItem,
     Payment,
     RepairTicket,
+    AccountAction,
+    OrderEvent,
+    LoyaltyEntry,
   ],
 
   migrations: ['src/database/migrations/*.ts'],
