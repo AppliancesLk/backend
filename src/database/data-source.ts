@@ -23,6 +23,11 @@ import { AccountAction } from '../auth/entities/account-action.entity';
 import { OrderEvent } from '../orders/entities/order-event.entity';
 import { LoyaltyEntry } from '../loyalty/entities/loyalty-entry.entity';
 import { StorefrontTheme } from '../storefront-theme/entities/storefront-theme.entity';
+import {
+  Promotion,
+  PromotionRecipient,
+  PromotionRun,
+} from '../promotions/entities/promotion.entity';
 
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
@@ -49,6 +54,9 @@ export const AppDataSource = new DataSource({
     OrderEvent,
     LoyaltyEntry,
     StorefrontTheme,
+    Promotion,
+    PromotionRecipient,
+    PromotionRun,
   ],
 
   migrations: ['src/database/migrations/*.ts'],
