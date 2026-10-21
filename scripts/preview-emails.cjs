@@ -73,6 +73,22 @@ const template = (file, name) =>
     updatedAt: date,
   };
   const previews = [
+    [
+      'email-verification',
+      template('account-action', 'accountActionTemplate')(
+        name,
+        'a'.repeat(64),
+        'VERIFY_EMAIL',
+      ),
+    ],
+    [
+      'password-reset',
+      template('account-action', 'accountActionTemplate')(
+        name,
+        'b'.repeat(64),
+        'RESET_PASSWORD',
+      ),
+    ],
     ['welcome', template('welcome-email', 'welcomeEmailTemplate')(name)],
     [
       'login',

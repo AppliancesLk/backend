@@ -32,6 +32,15 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  deactivatedAt: Date | null;
+
+  @Column({ type: 'numeric', precision: 30, scale: 2, default: '0.00' })
+  loyaltyBalance: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

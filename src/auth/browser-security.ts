@@ -25,12 +25,19 @@ export function browserSecurity(
   }
   if (
     req.method === 'POST' &&
-    ['/auth/login', '/auth/register'].includes(req.path)
+    [
+      '/auth/login',
+      '/auth/register',
+      '/auth/verify-email',
+      '/auth/resend-verification',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+    ].includes(req.path)
   ) {
     const now = Date.now();
     for (const [key, value] of attempts)
       if (value.until <= now) attempts.delete(key);
-    const key = req.ip ?? req.socket.remoteAddress ?? 'unknown';
+    const key = `${req.ip ?? req.socket.remoteAddress ?? 'unknown'}:${req.path}`;
     const attempt = attempts.get(key) ?? {
       count: 0,
       until: now + 15 * 60 * 1000,

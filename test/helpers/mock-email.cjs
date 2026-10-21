@@ -1,7 +1,16 @@
+const mailboxes = new WeakMap();
 function mockEmail(app, send = async () => ({ sent: true })) {
   const {
     EmailService,
   } = require('../../dist/notification/email/email.service');
-  app.get(EmailService).send = send;
+  const messages = [];
+  mailboxes.set(app, messages);
+  app.get(EmailService).send = async (message) => {
+    messages.push(message);
+    return send(message);
+  };
 }
-module.exports = { mockEmail };
+function getMessages(app) {
+  return mailboxes.get(app) ?? [];
+}
+module.exports = { mockEmail, getMessages };

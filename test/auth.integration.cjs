@@ -1,4 +1,5 @@
-﻿const assert = require('node:assert/strict');
+const { registerVerified } = require('./helpers/register-verified.cjs');
+const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes } = require('node:crypto');
 
@@ -99,11 +100,11 @@ const { randomBytes } = require('node:crypto');
       .send({ username, email, password, role: 'ADMIN' })
       .expect(400);
     checks++;
-    const created = await request(server)
-      .post('/auth/register')
-      .set(headers)
-      .send({ username: username.toUpperCase(), email, password })
-      .expect(201);
+    const created = await registerVerified(app, {
+      username: username.toUpperCase(),
+      email,
+      password,
+    });
     userId = created.body.user.id;
     check(
       created.body.user.role === 'CUSTOMER',

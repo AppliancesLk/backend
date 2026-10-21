@@ -29,6 +29,13 @@ export class OrdersController {
   list(@Req() request: AuthenticatedRequest) {
     return this.ordersService.findAllOwn(this.customerId(request));
   }
+  @Post(':id/cancel')
+  cancel(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.ordersService.cancelOwn(this.customerId(request), id);
+  }
   @Get(':id/status')
   status(
     @Req() request: AuthenticatedRequest,
