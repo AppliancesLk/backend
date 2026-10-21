@@ -161,7 +161,7 @@ export class NotificationService {
   sendPromotionEmail(
     userId: string,
     promotion: PromotionNotice,
-    eventId = randomUUID(),
+    eventId: string = randomUUID(),
   ) {
     return this.deliver(
       'PROMOTION',
@@ -199,12 +199,20 @@ export class NotificationService {
     const started = Date.now();
     let id: string | undefined;
     let acceptedBySmtp = false;
+    let attemptedSmtp = false;
     const context = { notificationType: type, userId, relatedEntityId };
     this.logger.log({ operation: 'notification.attempted', ...context });
     try {
       // Recipient always comes from the account, never the delivery form or public input.
       const user = await this.users.findById(userId);
       if (!user) throw new Error('Notification account unavailable');
+      if (
+        type === 'PROMOTION' &&
+        (!user.isActive || !user.emailVerifiedAt || user.deactivatedAt)
+      ) {
+        this.logger.log({ operation: 'notification.skipped', ...context });
+        return { status: 'SKIPPED' };
+      }
       const content = template(user.username);
       try {
         const record = await this.history.save(
@@ -236,6 +244,7 @@ export class NotificationService {
         }
         throw error;
       }
+      attemptedSmtp = true;
       const result = await this.email.send({ to: user.email, ...content });
       acceptedBySmtp = result.sent;
       const status = result.sent ? 'SENT' : 'FAILED';
@@ -253,7 +262,17 @@ export class NotificationService {
       };
       if (result.sent) this.logger.log(log);
       else this.logger.warn(log);
-      return { status, notificationId: id };
+      return {
+        status,
+        notificationId: id,
+        ...(type === 'PROMOTION' &&
+        !result.sent &&
+        ['ETIMEDOUT', 'ESOCKET', 'ECONNECTION', 'smtp_error'].includes(
+          result.reason ?? '',
+        )
+          ? { uncertain: true }
+          : {}),
+      };
     } catch {
       // Database/SMTP exceptions can contain personal data and credentials. Do not rethrow.
       this.logger.warn({
@@ -281,7 +300,13 @@ export class NotificationService {
           notificationId: id,
           reason: 'accepted_email_not_recorded',
         });
-      return { status: acceptedBySmtp ? 'SENT' : 'FAILED', notificationId: id };
+      return {
+        status: acceptedBySmtp ? 'SENT' : 'FAILED',
+        notificationId: id,
+        ...(type === 'PROMOTION' && attemptedSmtp && !acceptedBySmtp
+          ? { uncertain: true }
+          : {}),
+      };
     }
   }
 }
