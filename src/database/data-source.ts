@@ -22,6 +22,7 @@ import { RepairTicket } from '../repairs/entities/repair-ticket.entity';
 import { AccountAction } from '../auth/entities/account-action.entity';
 import { OrderEvent } from '../orders/entities/order-event.entity';
 import { LoyaltyEntry } from '../loyalty/entities/loyalty-entry.entity';
+import { StorefrontTheme } from '../storefront-theme/entities/storefront-theme.entity';
 
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
@@ -47,6 +48,7 @@ export const AppDataSource = new DataSource({
     AccountAction,
     OrderEvent,
     LoyaltyEntry,
+    StorefrontTheme,
   ],
 
   migrations: ['src/database/migrations/*.ts'],
