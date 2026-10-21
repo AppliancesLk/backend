@@ -38,6 +38,9 @@ export class UsersService {
       username,
       passwordHash,
       role: UserRole.CUSTOMER,
+      isActive: false,
+      emailVerifiedAt: null,
+      deactivatedAt: null,
     });
 
     return this.usersRepository.save(user);

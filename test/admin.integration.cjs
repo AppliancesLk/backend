@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes } = require('node:crypto');
@@ -32,9 +33,11 @@ const { randomBytes } = require('node:crypto');
     return cookie ? req.set('Cookie', cookie) : req;
   };
   try {
-    const registered = await call('post', '/auth/register')
-      .send({ username: `test_${suffix}`, email, password })
-      .expect(201);
+    const registered = await registerVerified(app, {
+      username: `test_${suffix}`,
+      email,
+      password,
+    });
     userId = registered.body.user.id;
     const cookie = registered.headers['set-cookie'][0].split(';')[0];
     for (const path of [

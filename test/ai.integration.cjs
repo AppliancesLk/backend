@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const { randomBytes, randomUUID } = require('node:crypto');
 const request = require('supertest');
@@ -35,13 +36,11 @@ const request = require('supertest');
     checks++;
   };
   async function account(role) {
-    const result = await call('post', '/auth/register')
-      .send({
-        username: `ai_${role}_${suffix}`,
-        email: `ai_${role}_${suffix}@example.com`,
-        password: randomBytes(15).toString('hex'),
-      })
-      .expect(201);
+    const result = await registerVerified(app, {
+      username: `ai_${role}_${suffix}`,
+      email: `ai_${role}_${suffix}@example.com`,
+      password: randomBytes(15).toString('hex'),
+    });
     users.push(result.body.user.id);
     if (role === 'admin')
       await db.query('UPDATE users SET role=$1 WHERE id=$2', [

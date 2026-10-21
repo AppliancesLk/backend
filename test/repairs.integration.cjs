@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes, randomUUID } = require('node:crypto');
@@ -30,15 +31,11 @@ const { randomBytes, randomUUID } = require('node:crypto');
   };
   const createUser = async (name) => {
     const username = `repair_${name}_${suffix}`;
-    const response = await request(server)
-      .post('/auth/register')
-      .set(headers)
-      .send({
+    const response = await registerVerified(app, {
         username,
         email: `${username}@example.com`,
         password: randomBytes(20).toString('hex'),
-      })
-      .expect(201);
+      });
     users.push(response.body.user.id);
     return {
       id: response.body.user.id,

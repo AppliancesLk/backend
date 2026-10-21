@@ -1,3 +1,4 @@
+import { AccountActionsService } from '../services/account-actions.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../services/auth.service';
 import type { AuthenticatedRequest } from '../../common/types/authenticated-request.type';
@@ -11,7 +12,10 @@ describe('AuthController', () => {
     role: 'CUSTOMER',
   };
   const auth = { login: jest.fn(), logout: jest.fn() };
-  const controller = new AuthController(auth as unknown as AuthService);
+  const controller = new AuthController(
+    auth as unknown as AuthService,
+    {} as AccountActionsService,
+  );
   beforeEach(() => jest.clearAllMocks());
   it('sends the session only through an HttpOnly cookie', async () => {
     auth.login.mockResolvedValue({ token: 'secret', user: publicUser });

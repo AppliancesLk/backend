@@ -24,10 +24,19 @@ import { RegisterDto } from '../dto/register.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { RolesGuard } from '../guards/roles.guard';
 import { AuthService } from '../services/auth.service';
+import { AccountActionsService } from '../services/account-actions.service';
+import {
+  AccountEmailDto,
+  AccountTokenDto,
+  ResetPasswordDto,
+} from '../dto/account-action.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly actions: AccountActionsService,
+  ) {}
 
   @Post('register')
   async register(
@@ -37,11 +46,8 @@ export class AuthController {
   ) {
     const result = await this.authService.register(dto);
     await this.authService.logout(readSessionCookie(req.headers.cookie));
-    res.cookie(SESSION_COOKIE, result.token, {
-      ...sessionCookieOptions(),
-      maxAge: sessionDuration(),
-    });
-    return { user: result.user };
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
+    return result;
   }
 
   @Post('login')
@@ -57,6 +63,26 @@ export class AuthController {
       maxAge: sessionDuration(),
     });
     return { user: result.user };
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() dto: AccountTokenDto) {
+    return this.actions.consume(dto.token, 'VERIFY_EMAIL');
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() dto: AccountEmailDto) {
+    return this.actions.request(dto.email, 'VERIFY_EMAIL');
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: AccountEmailDto) {
+    return this.actions.request(dto.email, 'RESET_PASSWORD');
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.actions.consume(dto.token, 'RESET_PASSWORD', dto.password);
   }
 
   @Post('logout')

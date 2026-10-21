@@ -31,6 +31,7 @@ import { repairRejectedTemplate } from './email/templates/repair-rejected.templa
 import { repairStatusUpdatedTemplate } from './email/templates/repair-status-updated.template';
 import { repairReadyForCollectionTemplate } from './email/templates/repair-ready-for-collection.template';
 import { promotionTemplate } from './email/templates/promotion.template';
+import { accountActionTemplate } from './email/templates/account-action.template';
 
 @Injectable()
 export class NotificationService {
@@ -50,6 +51,26 @@ export class NotificationService {
       'USER',
       userId,
       welcomeEmailTemplate,
+    );
+  }
+  sendEmailVerificationEmail(userId: string, token: string) {
+    return this.deliver(
+      'EMAIL_VERIFICATION',
+      userId,
+      `verification:${randomUUID()}`,
+      'USER',
+      userId,
+      (name) => accountActionTemplate(name, token, 'VERIFY_EMAIL'),
+    );
+  }
+  sendPasswordResetEmail(userId: string, token: string) {
+    return this.deliver(
+      'PASSWORD_RESET',
+      userId,
+      `password-reset:${randomUUID()}`,
+      'USER',
+      userId,
+      (name) => accountActionTemplate(name, token, 'RESET_PASSWORD'),
     );
   }
   sendLoginNotification(userId: string, at = new Date()) {

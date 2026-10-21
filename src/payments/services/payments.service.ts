@@ -9,12 +9,14 @@ import {
 } from '@nestjs/common';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { NotificationService } from '../../notification/notification.service';
-import { DataSource, EntityManager, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { toMinorUnits } from '../../common/utils/money';
 import { Order } from '../../orders/entities/order.entity';
 import { OrderItem } from '../../orders/entities/order-item.entity';
 import { OrderStatus } from '../../orders/enums/order-status.enum';
-import { Product } from '../../products/entities/product.entity';
+import { OrderInventoryService } from '../../products/services/order-inventory.service';
+import { OrderEvent } from '../../orders/entities/order-event.entity';
+import { PaymentMethod } from '../enums/payment-method.enum';
 import { InitiatePaymentDto } from '../dto/initiate-payment.dto';
 import { PayHereNotificationDto } from '../dto/payhere-notification.dto';
 import {
@@ -37,6 +39,7 @@ export class PaymentsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly notifications: NotificationService,
+    private readonly inventory: OrderInventoryService,
   ) {}
 
   async initiate(
@@ -52,7 +55,11 @@ export class PaymentsService {
           lock: { mode: 'pessimistic_write' },
         });
         if (!order) throw new NotFoundException('Order not found');
-        if (order.status !== OrderStatus.PENDING_PAYMENT)
+        if (
+          (order.paymentMethod ?? PaymentMethod.PAYHERE) !==
+            PaymentMethod.PAYHERE ||
+          order.status !== OrderStatus.PENDING_PAYMENT
+        )
           throw new ConflictException('Order is not available for payment');
         if (toMinorUnits(order.total) <= 0n)
           throw new ConflictException('Order total is not valid for payment');
@@ -67,6 +74,7 @@ export class PaymentsService {
           payment = manager.create(Payment, {
             orderId: order.id,
             customerId,
+            method: PaymentMethod.PAYHERE,
             amount: order.total,
             currency: order.currency,
             status: PaymentStatus.PENDING,
@@ -163,6 +171,14 @@ export class PaymentsService {
         throw new BadRequestException('Invalid payment notification');
 
       const result = await this.dataSource.transaction(async (manager) => {
+        // All order/payment mutations lock the order first to avoid lock inversion.
+        const order = await manager.findOne(Order, {
+          where: { id: dto.order_id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!order) throw new NotFoundException('Order not found');
+        if (order.paymentMethod !== PaymentMethod.PAYHERE)
+          throw new ConflictException('This order does not use PayHere');
         const payment = await manager.findOne(Payment, {
           where: { orderId: dto.order_id },
           lock: { mode: 'pessimistic_write' },
@@ -188,6 +204,8 @@ export class PaymentsService {
         )
           return { payment, duplicate: true };
 
+        if (order.status !== OrderStatus.PENDING_PAYMENT)
+          throw new ConflictException('Order is not available for payment');
         payment.payherePaymentId = dto.payment_id;
         payment.providerStatusCode = dto.status_code;
         payment.verifiedAt = new Date();
@@ -198,20 +216,23 @@ export class PaymentsService {
           return { payment, duplicate: false };
         }
 
-        const order = await manager.findOne(Order, {
-          where: { id: payment.orderId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!order) throw new NotFoundException('Order not found');
         const items = await manager.find(OrderItem, {
           where: { orderId: payment.orderId },
         });
         if (order.status !== OrderStatus.PENDING_PAYMENT)
           throw new ConflictException('Order is not available for payment');
-        await this.deductStock(manager, items);
+        await this.inventory.reserve(manager, items);
+        order.stockReserved = true;
         payment.status = PaymentStatus.SUCCESS;
         order.status = OrderStatus.CONFIRMED;
         await manager.save(Order, order);
+        await manager.save(
+          OrderEvent,
+          manager.create(OrderEvent, {
+            orderId: order.id,
+            status: order.status,
+          }),
+        );
         await manager.save(Payment, payment);
         return { payment, duplicate: false };
       });
@@ -233,7 +254,10 @@ export class PaymentsService {
       // SMTP runs only after the verified payment transaction commits.
       if (!result.duplicate && result.payment.status === PaymentStatus.SUCCESS)
         await this.notifications.sendPaymentSuccessEmail(result.payment);
-      else if (!result.duplicate && result.payment.status === PaymentStatus.FAILED)
+      else if (
+        !result.duplicate &&
+        result.payment.status === PaymentStatus.FAILED
+      )
         await this.notifications.sendPaymentFailedEmail(result.payment);
       return { received: true, duplicate: result.duplicate };
     } catch (error: unknown) {
@@ -264,35 +288,6 @@ export class PaymentsService {
         'Unable to retrieve payment. Please try again',
       );
     }
-  }
-
-  private async deductStock(
-    manager: EntityManager,
-    items: OrderItem[],
-  ): Promise<void> {
-    const ids = items.map((item) => item.productId);
-    const products = await manager.find(Product, {
-      where: { productID: In(ids) },
-      relations: { category: true },
-      lock: { mode: 'pessimistic_write' },
-    });
-    const byId = new Map(
-      products.map((product) => [product.productID, product]),
-    );
-    for (const item of items) {
-      const product = byId.get(item.productId);
-      if (
-        !product ||
-        !product.isActive ||
-        !product.category.isActive ||
-        product.stockQty < item.quantity
-      )
-        throw new ConflictException(
-          'Order inventory is no longer available for payment',
-        );
-      product.stockQty -= item.quantity;
-    }
-    await manager.save(Product, products);
   }
 
   private providerStatus(code: string): PaymentStatus {
@@ -361,6 +356,7 @@ export class PaymentsService {
       amount: payment.amount,
       currency: payment.currency,
       status: payment.status,
+      method: payment.method,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
     };
