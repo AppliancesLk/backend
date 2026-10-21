@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { AuthSession } from '../entities/auth-session.entity';
 import { UserRole } from '../../users/enums/user-role.enum';
 import { sessionCookieOptions } from '../session.config';
+import { AccountActionsService } from './account-actions.service';
+import { DataSource } from 'typeorm';
 import { NotificationService } from '../../notification/notification.service';
 
 describe('Cookie authentication', () => {
@@ -13,6 +15,7 @@ describe('Cookie authentication', () => {
     email: 'customer@example.com',
     role: UserRole.CUSTOMER,
     isActive: true,
+    emailVerifiedAt: new Date(),
   };
   const sessions = { findOne: jest.fn(), delete: jest.fn() };
   const users = { findByUsername: jest.fn() };
@@ -20,6 +23,8 @@ describe('Cookie authentication', () => {
     users as unknown as UsersService,
     sessions as unknown as Repository<AuthSession>,
     {} as NotificationService,
+    {} as AccountActionsService,
+    {} as DataSource,
   );
   beforeEach(() => jest.clearAllMocks());
 

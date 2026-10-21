@@ -20,6 +20,8 @@ import { CartModule } from './cart/cart.module';
 import { ProductsModule } from './products/products.module';
 import { PaymentsModule } from './payments/payments.module';
 import { RepairsModule } from './repairs/repairs.module';
+import { AdminUsersModule } from './users/admin-users.module';
+import { LoyaltyModule } from './loyalty/loyalty.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { RepairsModule } from './repairs/repairs.module';
     OrdersModule,
     PaymentsModule,
     RepairsModule,
+    AdminUsersModule,
+    LoyaltyModule,
   ],
 
   controllers: [AppController],
