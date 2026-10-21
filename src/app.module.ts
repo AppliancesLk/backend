@@ -23,6 +23,7 @@ import { RepairsModule } from './repairs/repairs.module';
 import { AdminUsersModule } from './users/admin-users.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { StorefrontThemeModule } from './storefront-theme/storefront-theme.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { StorefrontThemeModule } from './storefront-theme/storefront-theme.modul
     AdminUsersModule,
     LoyaltyModule,
     StorefrontThemeModule,
+    PromotionsModule,
   ],
 
   controllers: [AppController],
