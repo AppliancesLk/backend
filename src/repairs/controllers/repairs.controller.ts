@@ -19,6 +19,7 @@ import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
 import { ApproveRepairDto } from '../dto/approve-repair.dto';
 import { RejectRepairDto } from '../dto/reject-repair.dto';
 import { UpdateRepairStatusDto } from '../dto/update-repair-status.dto';
+import { AssignRepairDto } from '../dto/assign-repair.dto';
 import { RepairsService } from '../services/repairs.service';
 
 @Controller('repairs')
@@ -67,6 +68,15 @@ export class RepairsController {
   @Roles(UserRole.ADMIN)
   reject(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RejectRepairDto) {
     return this.repairsService.reject(id, dto.rejectionReason);
+  }
+
+  @Patch('admin/:id/assign')
+  @Roles(UserRole.ADMIN)
+  assign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignRepairDto,
+  ) {
+    return this.repairsService.assign(id, dto.repairerId);
   }
 
   // Repairer endpoints
