@@ -20,6 +20,8 @@ const bcrypt = require('bcrypt');
       user.passwordHash = passwordHash;
       user.role = 'ADMIN';
       user.isActive = true;
+      user.emailVerifiedAt ??= new Date();
+      user.deactivatedAt = null;
       await users.save(user);
       await manager.query('DELETE FROM auth_sessions WHERE "userId" = $1', [
         user.id,
