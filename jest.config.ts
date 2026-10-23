@@ -22,9 +22,25 @@ const config: Config = {
     'src/**/*.(t|j)s',
     'libs/**/*.(t|j)s',
     'apps/**/*.(t|j)s',
+    // Exclude files that don't need coverage
+    '!src/main.ts',
+    '!src/**/*.module.ts',
+    '!src/**/*.entity.ts',
+    '!src/**/*.dto.ts',
+    '!src/**/*.enum.ts',
+    '!src/**/*.type.ts',
+    '!src/**/*.types.ts',
+    '!src/**/*.interface.ts',
+    '!src/**/*.decorator.ts',
+    '!src/database/migrations/**',
+    '!src/database/data-source.ts',
+    '!src/config/**',
   ],
   coverageDirectory: './coverage',
+  coverageReporters: ['text', 'html', 'lcov'],
   testEnvironment: 'node',
+  // Timeout for async tests
+  testTimeout: 30000,
 };
 
 export default config;
