@@ -24,6 +24,7 @@ import { AdminUsersModule } from './users/admin-users.module';
 import { LoyaltyModule } from './loyalty/loyalty.module';
 import { StorefrontThemeModule } from './storefront-theme/storefront-theme.module';
 import { PromotionsModule } from './promotions/promotions.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { PromotionsModule } from './promotions/promotions.module';
     LoyaltyModule,
     StorefrontThemeModule,
     PromotionsModule,
+    ReportsModule,
   ],
 
   controllers: [AppController],
