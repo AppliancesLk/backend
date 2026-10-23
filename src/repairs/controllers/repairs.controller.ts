@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Req,
@@ -18,6 +19,7 @@ import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
 import { ApproveRepairDto } from '../dto/approve-repair.dto';
 import { RejectRepairDto } from '../dto/reject-repair.dto';
 import { UpdateRepairStatusDto } from '../dto/update-repair-status.dto';
+import { AssignRepairDto } from '../dto/assign-repair.dto';
 import { RepairsService } from '../services/repairs.service';
 
 @Controller('repairs')
@@ -43,16 +45,6 @@ export class RepairsController {
     return this.repairsService.findAllForCustomer(request.user.sub);
   }
 
-  @Get(':id')
-  @Roles(UserRole.CUSTOMER)
-  findOneForCustomer(
-    @Req() request: AuthenticatedRequest,
-    @Param('id') id: string,
-  ) {
-    if (!request.user?.sub) throw new UnauthorizedException();
-    return this.repairsService.findOneForCustomer(id, request.user.sub);
-  }
-
   // Admin endpoints
   @Get('admin')
   @Roles(UserRole.ADMIN)
@@ -62,7 +54,7 @@ export class RepairsController {
 
   @Get('admin/:id')
   @Roles(UserRole.ADMIN)
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.repairsService.findOne(id);
   }
 
@@ -74,8 +66,17 @@ export class RepairsController {
 
   @Patch('admin/:id/reject')
   @Roles(UserRole.ADMIN)
-  reject(@Param('id') id: string, @Body() dto: RejectRepairDto) {
+  reject(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RejectRepairDto) {
     return this.repairsService.reject(id, dto.rejectionReason);
+  }
+
+  @Patch('admin/:id/assign')
+  @Roles(UserRole.ADMIN)
+  assign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignRepairDto,
+  ) {
+    return this.repairsService.assign(id, dto.repairerId);
   }
 
   // Repairer endpoints
@@ -90,7 +91,7 @@ export class RepairsController {
   @Roles(UserRole.REPAIRER)
   findOneForRepairer(
     @Req() request: AuthenticatedRequest,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
   ) {
     if (!request.user?.sub) throw new UnauthorizedException();
     return this.repairsService.findOneForRepairer(id, request.user.sub);
@@ -100,7 +101,7 @@ export class RepairsController {
   @Roles(UserRole.REPAIRER)
   updateRepairStatus(
     @Req() request: AuthenticatedRequest,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateRepairStatusDto,
   ) {
     if (!request.user?.sub) throw new UnauthorizedException();
@@ -109,5 +110,16 @@ export class RepairsController {
       request.user.sub,
       dto.status,
     );
+  }
+
+  // Keep the generic customer route after literal admin/repairer routes.
+  @Get(':id')
+  @Roles(UserRole.CUSTOMER)
+  findOneForCustomer(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    if (!request.user?.sub) throw new UnauthorizedException();
+    return this.repairsService.findOneForCustomer(id, request.user.sub);
   }
 }
