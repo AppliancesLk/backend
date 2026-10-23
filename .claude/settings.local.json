@@ -6,7 +6,9 @@
       "Bash(npm run test:auth:*)",
       "Bash(npm run test:unit:*)",
       "Bash(npm run test:auth:integration:*)",
-      "Bash(npm run test:cov:unit:*)"
+      "Bash(npm run test:cov:unit:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)"
     ]
   }
 }
