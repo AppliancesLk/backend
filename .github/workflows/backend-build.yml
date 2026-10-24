@@ -21,9 +21,11 @@ jobs:
       - name: Build backend image
         run: |
           docker build \
+            -t applianceslkdevacr.azurecr.io/backend-app:${{ github.sha }} \
             -t applianceslkdevacr.azurecr.io/backend-app:dev \
             .
 
       - name: Push backend image
         run: |
+          docker push applianceslkdevacr.azurecr.io/backend-app:${{ github.sha }}
           docker push applianceslkdevacr.azurecr.io/backend-app:dev
