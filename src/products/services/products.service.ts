@@ -196,6 +196,18 @@ export class ProductsService {
     return this.findById(productID, true);
   }
 
+  async remove(productID: string): Promise<void> {
+    await this.findById(productID, true);
+    try {
+      await this.productsRepository.delete(productID);
+    } catch (error: unknown) {
+      if (error instanceof QueryFailedError) {
+        throw new ConflictException('This product cannot be deleted because it is referenced by an order. Deactivate it instead.');
+      }
+      throw error;
+    }
+  }
+
   private validateComparePrice(price: number, compareAtPrice?: number | null) {
     if (compareAtPrice != null && Number(compareAtPrice) <= price)
       throw new BadRequestException(
