@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes, randomUUID } = require('node:crypto');
@@ -12,6 +13,7 @@ const { randomBytes, randomUUID } = require('node:crypto');
   } = require('../dist/database/migrations/1792220000000-CreateCartsAndCartItems');
   const app = await NestFactory.create(AppModule, { logger: ['error'] });
   configureApp(app);
+  require('./helpers/mock-email.cjs').mockEmail(app);
   await app.listen(0, '127.0.0.1');
   const server = app.getHttpServer();
   const db = app.get(DataSource);
@@ -38,13 +40,11 @@ const { randomBytes, randomUUID } = require('node:crypto');
   };
   const createUser = async (name) => {
     const username = `cart_${name}_${suffix}`;
-    const result = await call('post', '/auth/register')
-      .send({
-        username,
-        email: `${username}@example.com`,
-        password: randomBytes(16).toString('hex'),
-      })
-      .expect(201);
+    const result = await registerVerified(app, {
+      username,
+      email: `${username}@example.com`,
+      password: randomBytes(16).toString('hex'),
+    });
     users.push(result.body.user.id);
     return {
       id: result.body.user.id,

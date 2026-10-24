@@ -21,6 +21,25 @@ import { Product } from '../entities/product.entity';
 
 @Injectable()
 export class ProductsService {
+  async findRelatedPublicProducts(productID: string): Promise<Product[]> {
+    const current = await this.findById(productID);
+    // findById checks the full category hierarchy. All results share that category.
+    return this.productsRepository
+      .createQueryBuilder('product')
+      .innerJoinAndSelect('product.category', 'category')
+      .where('product.isActive = true')
+      .andWhere('product.categoryID = :categoryId', {
+        categoryId: current.category.categoryID,
+      })
+      .andWhere('product.productID <> :productId', { productId: productID })
+      .orderBy('ABS(product.price - :price)', 'ASC')
+      .setParameter('price', current.price)
+      .addOrderBy('product.productID', 'ASC')
+      // Only many-to-one joins: LIMIT bounds rows without TypeORM's DISTINCT/take wrapper.
+      .limit(5)
+      .getMany();
+  }
+
   private readonly logger = new Logger(ProductsService.name);
   constructor(
     @InjectRepository(Product)
