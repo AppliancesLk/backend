@@ -1,10 +1,14 @@
-name: Backend Build
+name: Backend Build and Deploy
 
 on:
+  push:
+    branches:
+      - develop
+
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -29,3 +33,23 @@ jobs:
         run: |
           docker push applianceslkdevacr.azurecr.io/backend-app:${{ github.sha }}
           docker push applianceslkdevacr.azurecr.io/backend-app:dev
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend to Azure Container Apps
+        run: |
+          az containerapp update \
+            --resource-group rg-appliances-dev \
+            --name appliances-api-dev \
+            --image applianceslkdevacr.azurecr.io/backend-app:${{ github.sha }}
+
+      - name: Show deployed image
+        run: |
+          az containerapp show \
+            --resource-group rg-appliances-dev \
+            --name appliances-api-dev \
+            --query "properties.template.containers[0].image" \
+            --output tsv
