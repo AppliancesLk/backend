@@ -34,9 +34,9 @@
     "test:debug": "node --inspect-brk --experimental-vm-modules -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json",
     "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm -- migration:generate",
-    "migration:run": "npm run typeorm -- migration:run",
-    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
     "test:auth:integration": "npm run build && node test/auth.integration.cjs",
     "seed:admin": "npm run build && node scripts/seed-admin.cjs",
     "test:admin:integration": "npm run build && node test/admin.integration.cjs",
@@ -46,7 +46,8 @@
     "test:payments:integration": "npm run build && node test/payments.integration.cjs",
     "test:repairs:integration": "npm run build && node test/repairs.integration.cjs",
     "test:promotions:integration": "npm run build && node test/promotions.integration.cjs",
-    "test:promotions": "npm test -- --runInBand src/promotions src/notification"
+    "test:promotions": "npm test -- --runInBand src/promotions src/notification",
+    "migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
