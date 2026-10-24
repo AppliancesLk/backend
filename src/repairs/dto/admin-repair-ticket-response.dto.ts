@@ -12,6 +12,7 @@ export interface AdminRepairTicketResponseDto {
   reference: string;
   customer: CustomerInfo;
   assignedRepairerId: string | null;
+  assignedRepairer: CustomerInfo | null;
   device: DeviceInformationDto;
   problemDescription: string;
   status: RepairStatus;
