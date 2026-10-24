@@ -1,3 +1,4 @@
+const { registerVerified } = require('./helpers/register-verified.cjs');
 const assert = require('node:assert/strict');
 const request = require('supertest');
 const { randomBytes, randomUUID } = require('node:crypto');
@@ -9,6 +10,7 @@ const { randomBytes, randomUUID } = require('node:crypto');
   const { configureApp } = require('../dist/app.setup');
   const app = await NestFactory.create(AppModule, { logger: false });
   configureApp(app);
+  require('./helpers/mock-email.cjs').mockEmail(app);
   await app.listen(0, '127.0.0.1');
   const server = app.getHttpServer();
   const db = app.get(DataSource);
@@ -29,18 +31,15 @@ const { randomBytes, randomUUID } = require('node:crypto');
   };
   const createUser = async (name) => {
     const username = `repair_${name}_${suffix}`;
-    const response = await request(server)
-      .post('/auth/register')
-      .set(headers)
-      .send({
+    const response = await registerVerified(app, {
         username,
         email: `${username}@example.com`,
         password: randomBytes(20).toString('hex'),
-      })
-      .expect(201);
+      });
     users.push(response.body.user.id);
     return {
       id: response.body.user.id,
+      username,
       cookie: response.headers['set-cookie'][0].split(';')[0],
     };
   };
@@ -166,6 +165,57 @@ const { randomBytes, randomUUID } = require('node:crypto');
       .send({ ...valid, unknown: randomUUID() })
       .expect(400);
     checks++;
+
+    const access = (method, path, cookie) => {
+      const req = request(server)[method](path).set(headers);
+      return cookie ? req.set('Cookie', cookie) : req;
+    };
+    const adminList = await access('get', '/repairs/admin', admin.cookie).expect(200);
+    check(adminList.body.some((ticket) => ticket.id === created.id), 'Admin literal list route reaches the admin handler');
+    await access('get', '/repairs/admin').expect(401);
+    await access('get', '/repairs/admin', customer.cookie).expect(403);
+    await access('get', '/repairs/admin', repairer.cookie).expect(403);
+    checks += 3;
+    const detail = await access('get', `/repairs/admin/${created.id}`, admin.cookie).expect(200);
+    check(detail.body.customer.id === customer.id, 'Admin can open repair details');
+    await access('get', `/repairs/admin/${created.id}`, customer.cookie).expect(403);
+    await access('get', '/repairs/admin/not-a-uuid', admin.cookie).expect(400);
+    await access('get', `/repairs/admin/${randomUUID()}`, admin.cookie).expect(404);
+    checks += 3;
+
+    await access('get', `/repairs/${created.id}`, customer.cookie).expect(200);
+    await access('get', `/repairs/${created.id}`, another.cookie).expect(403);
+    await access('get', `/repairs/${created.id}`, admin.cookie).expect(403);
+    checks += 3;
+    const approved = await access('patch', `/repairs/admin/${created.id}/approve`, admin.cookie).expect(200);
+    check(approved.body.status === 'APPROVED', 'Admin approval uses the URL identifier with no body');
+    await access('patch', `/repairs/admin/${created.id}/approve`, admin.cookie).expect(400);
+    const assignedResponse = await access('patch', `/repairs/admin/${created.id}/assign`, admin.cookie)
+      .send({ repairerId: repairer.id })
+      .expect(200);
+    check(
+      assignedResponse.body.status === 'ASSIGNED' &&
+        assignedResponse.body.assignedRepairerId === repairer.id,
+      'Admin can assign an approved repair to an active repairer',
+    );
+    await access('patch', `/repairs/admin/${created.id}/assign`, customer.cookie)
+      .send({ repairerId: repairer.id })
+      .expect(403);
+    await access('patch', `/repairs/admin/${created.id}/assign`, admin.cookie)
+      .send({ repairerId: another.id })
+      .expect(400);
+    checks += 2;
+    await access('patch', `/repairs/admin/${second.id}/reject`, customer.cookie).send({ rejectionReason: 'Not allowed' }).expect(403);
+    const rejected = await access('patch', `/repairs/admin/${second.id}/reject`, admin.cookie).send({ rejectionReason: 'Device cannot be serviced' }).expect(200);
+    check(rejected.body.status === 'REJECTED', 'Admin rejection accepts the frontend body without a duplicate ID');
+    checks += 2;
+
+    const assigned = await access('get', '/repairs/repairer', repairer.cookie).expect(200);
+    check(assigned.body.some((ticket) => ticket.id === created.id), 'Repairer literal list route reaches the assigned-work handler');
+    await access('get', '/repairs/repairer', customer.cookie).expect(403);
+    await access('get', `/repairs/repairer/${created.id}`, repairer.cookie).expect(200);
+    await access('get', `/repairs/repairer/${second.id}`, repairer.cookie).expect(403);
+    checks += 3;
     console.log(`PASS: ${checks} repair integration checks`);
   } finally {
     for (const id of users)
