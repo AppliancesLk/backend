@@ -1,22 +1,33 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { DataSource } from 'typeorm';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 
 describe('AppController', () => {
-  let appController: AppController;
+  const mockDataSource = {
+    query: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
+  };
 
-  beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],
-      providers: [AppService],
-    }).compile();
+  const appController = new AppController(mockDataSource as unknown as DataSource);
 
-    appController = app.get<AppController>(AppController);
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return the API status message', () => {
+      expect(appController.getHello()).toEqual({
+        message: 'Appliances.lk backend is running',
+      });
+    });
+  });
+
+  describe('health/database', () => {
+    it('should return ok when database is connected', async () => {
+      const result = await appController.checkDatabase();
+      expect(result).toEqual({
+        status: 'ok',
+        database: 'connected',
+      });
+      expect(mockDataSource.query).toHaveBeenCalledWith('SELECT 1');
     });
   });
 });

@@ -1,0 +1,29 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testRegex": ".*\\.integration-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "collectCoverageFrom": [
+    "src/**/*.(t|j)s",
+    "!src/main.ts",
+    "!src/**/*.module.ts",
+    "!src/**/*.entity.ts",
+    "!src/**/*.dto.ts",
+    "!src/**/*.enum.ts",
+    "!src/**/*.type.ts",
+    "!src/**/*.types.ts",
+    "!src/**/*.interface.ts",
+    "!src/**/*.decorator.ts",
+    "!src/database/migrations/**",
+    "!src/database/data-source.ts",
+    "!src/config/**"
+  ],
+  "coverageDirectory": "./coverage/integration",
+  "coverageReporters": ["text", "html", "lcov"],
+  "testEnvironment": "node",
+  "testTimeout": 60000,
+  "maxWorkers": 1,
+  "setupFilesAfterEnv": ["<rootDir>/test/setup/jest-integration.setup.ts"]
+}
