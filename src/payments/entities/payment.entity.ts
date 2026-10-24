@@ -13,6 +13,7 @@ import {
 import { Order } from '../../orders/entities/order.entity';
 import { User } from '../../users/entities/user.entity';
 import { PaymentStatus } from '../enums/payment-status.enum';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 @Entity('payments')
 @Unique('UQ_payments_order', ['orderId'])
@@ -21,7 +22,7 @@ import { PaymentStatus } from '../enums/payment-status.enum';
   unique: true,
   where: '"payherePaymentId" IS NOT NULL',
 })
-@Check('CHK_payments_positive_amount', '"amount" > 0')
+@Check('CHK_payments_positive_amount', '"amount" >= 0')
 @Check('CHK_payments_currency', `"currency" = 'LKR'`)
 export class Payment {
   @PrimaryGeneratedColumn('uuid', { primaryKeyConstraintName: 'PK_payments' })
@@ -36,6 +37,8 @@ export class Payment {
   order: Order;
 
   @Column({ type: 'uuid' }) customerId: string;
+  @Column({ type: 'varchar', length: 24, default: PaymentMethod.PAYHERE })
+  method: PaymentMethod;
   @ManyToOne(() => User, { onDelete: 'RESTRICT', nullable: false })
   @JoinColumn({
     name: 'customerId',

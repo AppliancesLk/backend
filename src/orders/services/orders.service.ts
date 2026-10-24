@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { NotificationService } from '../../notification/notification.service';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { CartService } from '../../cart/services/cart.service';
 import { CheckoutService } from '../../checkout/services/checkout.service';
@@ -20,17 +21,36 @@ import {
 import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { OrderStatus } from '../enums/order-status.enum';
+import { PaymentMethod } from '../../payments/enums/payment-method.enum';
+import { PaymentStatus } from '../../payments/enums/payment-status.enum';
+import { OrderEvent } from '../entities/order-event.entity';
+import { LoyaltyService } from '../../loyalty/services/loyalty.service';
+import { OrderInventoryService } from '../../products/services/order-inventory.service';
+import { formatMinorUnits, toMinorUnits } from '../../common/utils/money';
 
 @Injectable()
 export class OrdersService {
-  async hasDeliveredPurchase(customerId:string,productId:string):Promise<boolean> {
-    return this.dataSource.getRepository(Order).createQueryBuilder('order').innerJoin('order.items','item').where('order.customerId = :customerId',{customerId}).andWhere('order.status = :status',{status:OrderStatus.DELIVERED}).andWhere('item.productId = :productId',{productId}).getExists();
+  async hasDeliveredPurchase(
+    customerId: string,
+    productId: string,
+  ): Promise<boolean> {
+    return this.dataSource
+      .getRepository(Order)
+      .createQueryBuilder('order')
+      .innerJoin('order.items', 'item')
+      .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.status = :status', { status: OrderStatus.DELIVERED })
+      .andWhere('item.productId = :productId', { productId })
+      .getExists();
   }
   private readonly logger = new Logger(OrdersService.name);
   constructor(
     private readonly dataSource: DataSource,
     private readonly cartService: CartService,
     private readonly checkoutService: CheckoutService,
+    private readonly notifications: NotificationService,
+    private readonly loyalty: LoyaltyService,
+    private readonly inventory: OrderInventoryService,
   ) {}
 
   async create(
@@ -69,6 +89,10 @@ export class OrdersService {
                 idempotencyKey: dto.idempotencyKey,
                 requestHash: fingerprint,
                 status: OrderStatus.PENDING_PAYMENT,
+                paymentMethod: dto.paymentMethod ?? PaymentMethod.PAYHERE,
+                loyaltyRedeemed: '0.00',
+                loyaltyEarned: '0.00',
+                stockReserved: false,
                 delivery: checkout.delivery,
                 currency: checkout.currency,
                 subtotal: checkout.subtotal,
@@ -91,6 +115,46 @@ export class OrdersService {
                 }),
               ),
             );
+            await this.loyalty.redeem(
+              manager,
+              order,
+              dto.loyaltyAmount ?? '0.00',
+            );
+            if (toMinorUnits(order.total) === 0n)
+              order.paymentMethod = PaymentMethod.LOYALTY;
+            if (order.paymentMethod !== PaymentMethod.PAYHERE) {
+              await this.inventory.reserve(manager, order.items);
+              order.stockReserved = true;
+              order.status = OrderStatus.CONFIRMED;
+              await manager.save(
+                Payment,
+                manager.create(Payment, {
+                  orderId: order.id,
+                  customerId,
+                  method: order.paymentMethod,
+                  amount: order.total,
+                  currency: order.currency,
+                  status:
+                    order.paymentMethod === PaymentMethod.LOYALTY
+                      ? PaymentStatus.SUCCESS
+                      : PaymentStatus.PENDING,
+                  verifiedAt:
+                    order.paymentMethod === PaymentMethod.LOYALTY
+                      ? new Date()
+                      : null,
+                }),
+              );
+            }
+            await manager.save(Order, order);
+            order.events = [
+              await manager.save(
+                OrderEvent,
+                manager.create(OrderEvent, {
+                  orderId: order.id,
+                  status: order.status,
+                }),
+              ),
+            ];
             await this.cartService.consumeCart(
               customerId,
               checkout.cartId,
@@ -130,6 +194,8 @@ export class OrdersService {
         orderId: result.order.id,
         outcome: result.replayed ? 'replayed' : 'created',
       });
+      if (!result.replayed)
+        await this.notifications.sendOrderCreatedEmail(result.order);
       return this.response(result.order);
     } catch (error: unknown) {
       const context = {
@@ -153,7 +219,7 @@ export class OrdersService {
     try {
       const orders = await this.dataSource.manager.find(Order, {
         where: { customerId },
-        relations: { items: true },
+        relations: { items: true, events: true },
         order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
       });
       return orders.map((order) => this.response(order));
@@ -166,7 +232,7 @@ export class OrdersService {
     try {
       const order = await this.dataSource.manager.findOne(Order, {
         where: { id, customerId },
-        relations: { items: true },
+        relations: { items: true, events: true },
         order: { items: { id: 'ASC' } },
       });
       if (!order) throw new NotFoundException('Order not found');
@@ -195,7 +261,7 @@ export class OrdersService {
   async findAllForAdmin(): Promise<AdminOrderResponseDto[]> {
     try {
       const orders = await this.dataSource.manager.find(Order, {
-        relations: { customer: true, items: true },
+        relations: { customer: true, items: true, events: true },
         order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
       });
       const payments = orders.length
@@ -206,8 +272,12 @@ export class OrdersService {
             })
             .getMany()
         : [];
-      const byOrder = new Map(payments.map((payment) => [payment.orderId, payment]));
-      return orders.map((order) => this.adminResponse(order, byOrder.get(order.id)));
+      const byOrder = new Map(
+        payments.map((payment) => [payment.orderId, payment]),
+      );
+      return orders.map((order) =>
+        this.adminResponse(order, byOrder.get(order.id)),
+      );
     } catch (error: unknown) {
       return this.adminRetrievalFailure(error, 'orders.admin.list');
     }
@@ -217,7 +287,7 @@ export class OrdersService {
     try {
       const order = await this.dataSource.manager.findOne(Order, {
         where: { id },
-        relations: { customer: true, items: true },
+        relations: { customer: true, items: true, events: true },
         order: { items: { id: 'ASC' } },
       });
       if (!order) throw new NotFoundException('Order not found');
@@ -234,9 +304,10 @@ export class OrdersService {
     adminId: string,
     id: string,
     status: OrderStatus,
+    paymentCollected = false,
   ): Promise<AdminOrderResponseDto> {
     try {
-      const previous = await this.dataSource.transaction(async (manager) => {
+      const change = await this.dataSource.transaction(async (manager) => {
         const order = await manager.findOne(Order, {
           where: { id },
           lock: { mode: 'pessimistic_write' },
@@ -248,19 +319,23 @@ export class OrdersService {
             `Order status cannot change from ${from} to ${status}`,
           );
         if (from !== status) {
-          order.status = status;
-          await manager.save(order);
+          await this.applyStatus(manager, order, status, paymentCollected);
         }
-        return from;
+        return { previous: from, order };
       });
       this.logger.log({
         operation: 'orders.admin.status.update',
         adminId,
         orderId: id,
-        previousStatus: previous,
+        previousStatus: change.previous,
         status,
-        outcome: previous === status ? 'unchanged' : 'updated',
+        outcome: change.previous === status ? 'unchanged' : 'updated',
       });
+      if (change.previous !== status)
+        await this.notifications.sendOrderStatusUpdatedEmail(
+          change.order,
+          change.previous,
+        );
       return this.findForAdmin(id);
     } catch (error: unknown) {
       const context = {
@@ -278,6 +353,112 @@ export class OrdersService {
         'Unable to update order status. Please try again',
       );
     }
+  }
+
+  async cancelOwn(customerId: string, id: string): Promise<OrderResponseDto> {
+    try {
+      await this.dataSource
+        .transaction(async (manager) => {
+          const order = await manager.findOne(Order, {
+            where: { id, customerId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!order) throw new NotFoundException('Order not found');
+          if (order.status === OrderStatus.CANCELLED) return;
+          if (
+            order.status !== OrderStatus.PENDING_PAYMENT &&
+            !(
+              order.status === OrderStatus.CONFIRMED &&
+              order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY
+            )
+          )
+            throw new ConflictException(
+              'Contact the store to cancel an order that is already being prepared',
+            );
+          const previous = order.status;
+          await this.applyStatus(manager, order, OrderStatus.CANCELLED, false);
+          return previous;
+        })
+        .then(async (previous) => {
+          if (previous) {
+            this.logger.log({
+              operation: 'orders.customer.cancel',
+              customerId,
+              orderId: id,
+            });
+            const order = await this.dataSource.manager.findOneByOrFail(Order, {
+              id,
+            });
+            await this.notifications.sendOrderStatusUpdatedEmail(
+              order,
+              previous,
+            );
+          }
+        });
+    } catch (error: unknown) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error({
+        operation: 'orders.customer.cancel.failed',
+        customerId,
+        orderId: id,
+      });
+      throw new InternalServerErrorException(
+        'Unable to cancel this order. Please try again',
+      );
+    }
+    return this.findOwn(customerId, id);
+  }
+
+  private async applyStatus(
+    manager: EntityManager,
+    order: Order,
+    status: OrderStatus,
+    paymentCollected: boolean,
+  ) {
+    const payment = await manager.findOne(Payment, {
+      where: { orderId: order.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (status === OrderStatus.DELIVERED) {
+      if (!payment) throw new ConflictException('Order payment is unavailable');
+      if (
+        order.paymentMethod === PaymentMethod.CASH_ON_DELIVERY &&
+        payment.status !== PaymentStatus.SUCCESS
+      ) {
+        if (!paymentCollected)
+          throw new ConflictException(
+            'Confirm that the cash payment was collected before completing delivery',
+          );
+        payment.status = PaymentStatus.SUCCESS;
+        payment.verifiedAt = new Date();
+        await manager.save(Payment, payment);
+      }
+      if (payment.status !== PaymentStatus.SUCCESS)
+        throw new ConflictException(
+          'A paid order is required to complete delivery',
+        );
+      await this.loyalty.complete(manager, order);
+    }
+    if (status === OrderStatus.CANCELLED) {
+      await this.loyalty.refund(manager, order);
+      if (order.stockReserved) {
+        const items = await manager.find(OrderItem, {
+          where: { orderId: order.id },
+        });
+        await this.inventory.release(manager, items);
+        order.stockReserved = false;
+      }
+      if (payment && payment.status !== PaymentStatus.SUCCESS) {
+        payment.status = PaymentStatus.CANCELLED;
+        await manager.save(Payment, payment);
+      }
+    }
+    order.status = status;
+    await manager.save(Order, order);
+    await manager.save(
+      OrderEvent,
+      manager.create(OrderEvent, { orderId: order.id, status }),
+    );
   }
 
   private retrievalFailure(
@@ -306,7 +487,12 @@ export class OrdersService {
     orderId?: string,
   ): never {
     if (error instanceof HttpException) throw error;
-    this.logger.error({ operation, orderId, outcome: 'failed', statusCode: 500 });
+    this.logger.error({
+      operation,
+      orderId,
+      outcome: 'failed',
+      statusCode: 500,
+    });
     throw new InternalServerErrorException(
       'Unable to retrieve orders. Please try again',
     );
@@ -333,6 +519,7 @@ export class OrdersService {
       .createQueryBuilder(Order, 'order')
       .addSelect('order.requestHash')
       .leftJoinAndSelect('order.items', 'item')
+      .leftJoinAndSelect('order.events', 'event')
       .where('order.customerId = :customerId', { customerId })
       .andWhere('order.idempotencyKey = :idempotencyKey', { idempotencyKey })
       .orderBy('item.id', 'ASC')
@@ -357,7 +544,18 @@ export class OrdersService {
       postalCode: d.postalCode.trim(),
       countryCode: d.countryCode.trim().toUpperCase(),
     };
-    return createHash('sha256').update(JSON.stringify(delivery)).digest('hex');
+    // Preserve legacy fingerprints when no new payment/loyalty choice is supplied.
+    const amount = formatMinorUnits(toMinorUnits(dto.loyaltyAmount ?? '0.00'));
+    const payload =
+      (dto.paymentMethod ?? PaymentMethod.PAYHERE) === PaymentMethod.PAYHERE &&
+      amount === '0.00'
+        ? delivery
+        : {
+            delivery,
+            paymentMethod: dto.paymentMethod ?? PaymentMethod.PAYHERE,
+            loyaltyAmount: amount,
+          };
+    return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
   }
   private response(order: Order): OrderResponseDto {
     return {
@@ -369,6 +567,16 @@ export class OrdersService {
       delivery: order.delivery,
       subtotal: order.subtotal,
       total: order.total,
+      paymentMethod: order.paymentMethod,
+      loyaltyRedeemed: order.loyaltyRedeemed,
+      loyaltyEarned: order.loyaltyEarned,
+      history: [...(order.events ?? [])]
+        .sort(
+          (a, b) =>
+            a.createdAt.getTime() - b.createdAt.getTime() ||
+            a.id.localeCompare(b.id),
+        )
+        .map(({ id, status, createdAt }) => ({ id, status, createdAt })),
       preparedAt: order.preparedAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -402,6 +610,7 @@ export class OrdersService {
         ? {
             id: payment.id,
             status: payment.status,
+            method: payment.method,
             amount: payment.amount,
             currency: payment.currency,
             updatedAt: payment.updatedAt,

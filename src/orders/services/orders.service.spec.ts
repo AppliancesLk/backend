@@ -11,7 +11,11 @@ import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { CreateOrderDto } from '../dto/create-order.dto';
+import { LoyaltyService } from '../../loyalty/services/loyalty.service';
+import { OrderInventoryService } from '../../products/services/order-inventory.service';
+import { OrderEvent } from '../entities/order-event.entity';
 import { OrdersService } from './orders.service';
+import { NotificationService } from '../../notification/notification.service';
 
 describe('Order creation', () => {
   const builder = {
@@ -64,13 +68,15 @@ describe('Order creation', () => {
     manager.createQueryBuilder.mockReturnValue(builder);
     builder.getOne.mockImplementation(async () => persisted);
     manager.create.mockImplementation(
-      (entity: typeof Order | typeof OrderItem, fields: object) =>
-        Object.assign(new entity(), fields),
+      (
+        entity: typeof Order | typeof OrderItem | typeof OrderEvent,
+        fields: object,
+      ) => Object.assign(new entity(), fields),
     );
     manager.save.mockImplementation(
       async (
-        entity: typeof Order | typeof OrderItem,
-        values: Order | OrderItem[],
+        entity: typeof Order | typeof OrderItem | typeof OrderEvent,
+        values: Order | OrderItem[] | OrderEvent,
       ) => {
         if (entity === Order) {
           persisted = Object.assign(values, {
@@ -80,6 +86,8 @@ describe('Order creation', () => {
           }) as Order;
           return persisted;
         }
+        if (entity === OrderEvent)
+          return Object.assign(values, { id: 'event', createdAt: new Date() });
         return (values as OrderItem[]).map((item, index) =>
           Object.assign(item, { id: `item-${index}` }),
         );
@@ -118,6 +126,12 @@ describe('Order creation', () => {
       dataSource as unknown as DataSource,
       cart as unknown as CartService,
       checkout as unknown as CheckoutService,
+      { sendOrderCreatedEmail: jest.fn() } as unknown as NotificationService,
+      { redeem: jest.fn() } as unknown as LoyaltyService,
+      {
+        reserve: jest.fn(),
+        release: jest.fn(),
+      } as unknown as OrderInventoryService,
     );
   });
   afterEach(() => jest.restoreAllMocks());
@@ -265,7 +279,7 @@ describe('Order creation', () => {
     await expect(service.findAllOwn('customer')).resolves.toEqual([]);
     expect(manager.find).toHaveBeenCalledWith(Order, {
       where: { customerId: 'customer' },
-      relations: { items: true },
+      relations: { items: true, events: true },
       order: { createdAt: 'DESC', id: 'DESC', items: { id: 'ASC' } },
     });
   });

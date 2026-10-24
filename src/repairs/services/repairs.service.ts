@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { NotificationService } from '../../notification/notification.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { CreateRepairTicketDto } from '../dto/create-repair-ticket.dto';
@@ -17,6 +18,8 @@ import type { RepairerRepairTicketResponseDto } from '../dto/repairer-repair-tic
 import { RepairTicket } from '../entities/repair-ticket.entity';
 import { RepairStatus } from '../enums/repair-status.enum';
 import { validateRepairerStatusTransition } from '../utils/status-transition.util';
+import { User } from '../../users/entities/user.entity';
+import { UserRole } from '../../users/enums/user-role.enum';
 
 @Injectable()
 export class RepairsService {
@@ -25,6 +28,9 @@ export class RepairsService {
   constructor(
     @InjectRepository(RepairTicket)
     private readonly tickets: Repository<RepairTicket>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -41,6 +47,7 @@ export class RepairsService {
         reference: ticket.reference,
         outcome: 'created',
       });
+      await this.notifications.sendRepairRequestCreatedEmail(ticket);
       return this.response(ticket);
     } catch (error: unknown) {
       const context = {
@@ -133,7 +140,7 @@ export class RepairsService {
   async findAll(): Promise<AdminRepairTicketResponseDto[]> {
     try {
       const tickets = await this.tickets.find({
-        relations: { customer: true },
+        relations: { customer: true, assignedRepairer: true },
         order: { createdAt: 'DESC' },
       });
       return tickets.map((ticket) => this.adminResponse(ticket));
@@ -152,7 +159,7 @@ export class RepairsService {
     try {
       const ticket = await this.tickets.findOne({
         where: { id },
-        relations: { customer: true },
+        relations: { customer: true, assignedRepairer: true },
       });
       if (!ticket) {
         throw new NotFoundException('Repair ticket not found');
@@ -205,7 +212,7 @@ export class RepairsService {
         newStatus: RepairStatus.APPROVED,
         outcome: 'approved',
       });
-
+      await this.notifications.sendRepairApprovedEmail(updated);
       return this.adminResponse(updated);
     } catch (error: unknown) {
       const context = {
@@ -258,7 +265,7 @@ export class RepairsService {
         rejectionReason: rejectionReason ?? 'Not provided',
         outcome: 'rejected',
       });
-
+      await this.notifications.sendRepairRejectedEmail(updated);
       return this.adminResponse(updated);
     } catch (error: unknown) {
       const context = {
@@ -276,6 +283,59 @@ export class RepairsService {
     }
   }
 
+  async assign(
+    id: string,
+    repairerId: string,
+  ): Promise<AdminRepairTicketResponseDto> {
+    try {
+      const [ticket, repairer] = await Promise.all([
+        this.tickets.findOne({
+          where: { id },
+          relations: { customer: true, assignedRepairer: true },
+        }),
+        this.users.findOne({ where: { id: repairerId } }),
+      ]);
+
+      if (!ticket) throw new NotFoundException('Repair ticket not found');
+      if (!repairer || repairer.role !== UserRole.REPAIRER || !repairer.isActive || repairer.deactivatedAt) {
+        throw new BadRequestException('An active repairer account is required');
+      }
+      if (![RepairStatus.APPROVED, RepairStatus.ASSIGNED].includes(ticket.status)) {
+        throw new BadRequestException(
+          `Cannot assign repair with status ${ticket.status}. Approve it first.`,
+        );
+      }
+
+      ticket.assignedRepairerId = repairer.id;
+      ticket.status = RepairStatus.ASSIGNED;
+      const updated = await this.tickets.save(ticket);
+      updated.assignedRepairer = repairer;
+
+      this.logger.log({
+        operation: 'repairs.assign',
+        repairTicketId: ticket.id,
+        repairerId: repairer.id,
+        customerId: ticket.customerId,
+        outcome: 'assigned',
+      });
+      return this.adminResponse(updated);
+    } catch (error: unknown) {
+      const context = {
+        operation: 'repairs.assign',
+        repairTicketId: id,
+        repairerId,
+        outcome: 'failed',
+        statusCode: error instanceof HttpException ? error.getStatus() : 500,
+      };
+      if (error instanceof HttpException) this.logger.warn(context);
+      else this.logger.error(context);
+      if (error instanceof HttpException) throw error;
+      throw new InternalServerErrorException(
+        'Unable to assign repair ticket. Please try again',
+      );
+    }
+  }
+
   private adminResponse(ticket: RepairTicket): AdminRepairTicketResponseDto {
     return {
       id: ticket.id,
@@ -286,6 +346,13 @@ export class RepairsService {
         email: ticket.customer.email,
       },
       assignedRepairerId: ticket.assignedRepairerId,
+      assignedRepairer: ticket.assignedRepairer
+        ? {
+            id: ticket.assignedRepairer.id,
+            username: ticket.assignedRepairer.username,
+            email: ticket.assignedRepairer.email,
+          }
+        : null,
       device: ticket.device,
       problemDescription: ticket.problemDescription,
       status: ticket.status,
@@ -454,7 +521,9 @@ export class RepairsService {
         newStatus,
         outcome: 'updated',
       });
-
+      if (newStatus === RepairStatus.READY_FOR_COLLECTION)
+        await this.notifications.sendRepairReadyForCollectionEmail(updated);
+      else await this.notifications.sendRepairStatusUpdatedEmail(updated);
       return this.repairerResponse(updated);
     } catch (error: unknown) {
       const context = {

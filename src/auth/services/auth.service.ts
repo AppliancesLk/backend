@@ -1,10 +1,14 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
+  HttpException,
+  InternalServerErrorException,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
 import { createHash, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../../users/services/users.service';
@@ -13,13 +17,19 @@ import { AuthSession } from '../entities/auth-session.entity';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { sessionDuration } from '../session.config';
+import { NotificationService } from '../../notification/notification.service';
+import { AccountActionsService } from './account-actions.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   constructor(
     private readonly usersService: UsersService,
     @InjectRepository(AuthSession)
     private readonly sessions: Repository<AuthSession>,
+    private readonly notifications: NotificationService,
+    private readonly actions: AccountActionsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   publicUser(user: User) {
@@ -48,11 +58,22 @@ export class AuthService {
         dto.username,
         hash,
       );
-      return await this.createSession(user);
+      const sent = await this.actions.sendVerification(user.id);
+      return {
+        requiresVerification: true as const,
+        email: user.email,
+        message: sent
+          ? 'Account created. Check your email to verify your address before signing in.'
+          : 'Account created. We could not send the verification email. Request a new link on the verification page.',
+      };
     } catch (error) {
       if ((error as { code?: string }).code === '23505')
         throw new ConflictException('Username or email is already registered');
-      throw error;
+      if (error instanceof HttpException) throw error;
+      this.logger.error({ operation: 'auth.register.failed' });
+      throw new InternalServerErrorException(
+        'Unable to create your account. Please try again',
+      );
     }
   }
 
@@ -62,13 +83,23 @@ export class AuthService {
       : await this.usersService.findByUsername(dto.username);
     if (
       !user ||
-      !user.isActive ||
+      user.deactivatedAt ||
       Buffer.byteLength(dto.password, 'utf8') > 72 ||
       !(await bcrypt.compare(dto.password, user.passwordHash))
     ) {
       throw new UnauthorizedException('Invalid username or password');
     }
-    return this.createSession(user);
+    if (!user.emailVerifiedAt)
+      throw new ForbiddenException({
+        code: 'EMAIL_NOT_VERIFIED',
+        message:
+          'Verify your email address before signing in. You can request a new verification link.',
+      });
+    if (!user.isActive)
+      throw new UnauthorizedException('Invalid username or password');
+    const session = await this.createSession(user);
+    await this.notifications.sendLoginNotification(user.id);
+    return session;
   }
 
   private hash(token: string) {
@@ -78,13 +109,28 @@ export class AuthService {
   private async createSession(user: User) {
     await this.sessions.delete({ expiresAt: LessThan(new Date()) });
     const token = randomBytes(32).toString('hex');
-    await this.sessions.save(
-      this.sessions.create({
-        tokenHash: this.hash(token),
-        userId: user.id,
-        expiresAt: new Date(Date.now() + sessionDuration()),
-      }),
-    );
+    await this.dataSource.transaction(async (manager) => {
+      const current = await manager.findOne(User, {
+        where: { id: user.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !current?.isActive ||
+        !current.emailVerifiedAt ||
+        current.passwordHash !== user.passwordHash
+      )
+        throw new UnauthorizedException(
+          'Account details changed. Please sign in again',
+        );
+      await manager.save(
+        AuthSession,
+        manager.create(AuthSession, {
+          tokenHash: this.hash(token),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + sessionDuration()),
+        }),
+      );
+    });
     return { token, user: this.publicUser(user) };
   }
 
@@ -98,7 +144,8 @@ export class AuthService {
     if (
       !session ||
       session.expiresAt.getTime() <= Date.now() ||
-      !session.user.isActive
+      !session.user.isActive ||
+      !session.user.emailVerifiedAt
     ) {
       if (session) await this.sessions.delete({ tokenHash: session.tokenHash });
       throw new UnauthorizedException(
