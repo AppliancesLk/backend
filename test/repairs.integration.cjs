@@ -39,6 +39,7 @@ const { randomBytes, randomUUID } = require('node:crypto');
     users.push(response.body.user.id);
     return {
       id: response.body.user.id,
+      username,
       cookie: response.headers['set-cookie'][0].split(';')[0],
     };
   };
@@ -189,12 +190,26 @@ const { randomBytes, randomUUID } = require('node:crypto');
     const approved = await access('patch', `/repairs/admin/${created.id}/approve`, admin.cookie).expect(200);
     check(approved.body.status === 'APPROVED', 'Admin approval uses the URL identifier with no body');
     await access('patch', `/repairs/admin/${created.id}/approve`, admin.cookie).expect(400);
+    const assignedResponse = await access('patch', `/repairs/admin/${created.id}/assign`, admin.cookie)
+      .send({ repairerId: repairer.id })
+      .expect(200);
+    check(
+      assignedResponse.body.status === 'ASSIGNED' &&
+        assignedResponse.body.assignedRepairerId === repairer.id,
+      'Admin can assign an approved repair to an active repairer',
+    );
+    await access('patch', `/repairs/admin/${created.id}/assign`, customer.cookie)
+      .send({ repairerId: repairer.id })
+      .expect(403);
+    await access('patch', `/repairs/admin/${created.id}/assign`, admin.cookie)
+      .send({ repairerId: another.id })
+      .expect(400);
+    checks += 2;
     await access('patch', `/repairs/admin/${second.id}/reject`, customer.cookie).send({ rejectionReason: 'Not allowed' }).expect(403);
     const rejected = await access('patch', `/repairs/admin/${second.id}/reject`, admin.cookie).send({ rejectionReason: 'Device cannot be serviced' }).expect(200);
     check(rejected.body.status === 'REJECTED', 'Admin rejection accepts the frontend body without a duplicate ID');
     checks += 2;
 
-    await db.query('UPDATE repair_tickets SET "assignedRepairerId"=$1 WHERE id=$2', [repairer.id, created.id]);
     const assigned = await access('get', '/repairs/repairer', repairer.cookie).expect(200);
     check(assigned.body.some((ticket) => ticket.id === created.id), 'Repairer literal list route reaches the assigned-work handler');
     await access('get', '/repairs/repairer', customer.cookie).expect(403);
