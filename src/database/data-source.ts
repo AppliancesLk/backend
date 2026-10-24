@@ -17,6 +17,7 @@ import { DataSource } from 'typeorm';
 import { Category } from '../categories/entities/category.entity';
 import { getDatabaseConfig } from '../config/database.config';
 import { Product } from '../products/entities/product.entity';
+import { ProductImage } from '../products/entities/product-image.entity';
 import { User } from '../users/entities/user.entity';
 import { Payment } from '../payments/entities/payment.entity';
 import { RepairTicket } from '../repairs/entities/repair-ticket.entity';
@@ -45,6 +46,7 @@ export const AppDataSource = new DataSource({
     AuthSession,
     Category,
     Product,
+    ProductImage,
     Cart,
     CartItem,
     Order,
