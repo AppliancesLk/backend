@@ -1,0 +1,29 @@
+import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../auth/auth.module';
+import { CartModule } from '../cart/cart.module';
+import { CheckoutModule } from '../checkout/checkout.module';
+import { Order } from './entities/order.entity';
+import { OrderItem } from './entities/order-item.entity';
+import { OrdersController } from './controllers/orders.controller';
+import { AdminOrdersController } from './controllers/admin-orders.controller';
+import { OrdersService } from './services/orders.service';
+import { OrderEvent } from './entities/order-event.entity';
+import { LoyaltyModule } from '../loyalty/loyalty.module';
+import { ProductsModule } from '../products/products.module';
+@Module({
+  imports: [
+    NotificationModule,
+    TypeOrmModule.forFeature([Order, OrderItem, OrderEvent]),
+    LoyaltyModule,
+    ProductsModule,
+    AuthModule,
+    CartModule,
+    CheckoutModule,
+  ],
+  controllers: [OrdersController, AdminOrdersController],
+  providers: [OrdersService],
+  exports: [OrdersService],
+})
+export class OrdersModule {}
