@@ -15,3 +15,6 @@ test
 *.tsbuildinfo
 .vscode
 .idea
+src/**/*.spec.ts
+src/**/*.test.ts
+.claude
