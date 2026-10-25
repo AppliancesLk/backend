@@ -88,18 +88,19 @@ describe('Authentication Integration Tests', () => {
       expect(response.body.email).toBe(userData.email);
 
       // Verify user was created in database
+      // Note: Column names are camelCase in PostgreSQL (quoted identifiers in migrations)
       const userInDb = await dataSource.query(
         'SELECT * FROM users WHERE email = $1',
         [userData.email],
       );
       expect(userInDb).toHaveLength(1);
       expect(userInDb[0].role).toBe(UserRole.CUSTOMER);
-      expect(userInDb[0].is_active).toBe(false);
-      expect(userInDb[0].email_verified_at).toBeNull();
+      expect(userInDb[0].isActive).toBe(false);
+      expect(userInDb[0].emailVerifiedAt).toBeNull();
 
       // Verify password is hashed
-      expect(userInDb[0].password_hash).not.toBe(userData.password);
-      expect(userInDb[0].password_hash.startsWith('$2')).toBe(true);
+      expect(userInDb[0].passwordHash).not.toBe(userData.password);
+      expect(userInDb[0].passwordHash.startsWith('$2')).toBe(true);
 
       // Verify verification email was sent
       const verificationEmail = mockEmail.findVerificationEmail(userData.email);
