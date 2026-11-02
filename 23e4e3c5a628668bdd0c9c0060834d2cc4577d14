@@ -1,0 +1,11 @@
+{
+  "originalTree": "b8a37c7ac003da78d42aeb0ae6016850bc18d6c9",
+  "previousHistoricalTip": "59371aa311d7223d7445339f7f46c74ca4f0f8ab",
+  "previousPresentationTip": "6319ada865597e09b3886def0f62ad2aad9fe752",
+  "historicalTip": "23e4e3c5a628668bdd0c9c0060834d2cc4577d14",
+  "presentationTip": "9f89b64069777ca57a3bc87e858d428de2a92386",
+  "policy": "User-directed attribution amendment for feature IDs 1,25,26,27,29. Assigned presentation author AND committer dates with synthetic times; NOT VERIFIED HISTORICAL DEVELOPMENT DATES. Historical author evidence and original metadata retained in mappings and backup bundles.",
+  "mappingSha256": "26edbdea2297861d3f8d3a4cc993b8bd379058bf15cea76c60c165e6c2bd6c72",
+  "bundle": "C:\\Users\\lakshitha madushan\\Desktop\\Applianceslk\\New\\backend-history-attribution-v2-20261102\\before-attribution-v2.bundle",
+  "publicationAuthorized": false
+}
