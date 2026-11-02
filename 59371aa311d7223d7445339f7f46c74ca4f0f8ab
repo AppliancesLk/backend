@@ -4,8 +4,8 @@
   "historicalTip": "59371aa311d7223d7445339f7f46c74ca4f0f8ab",
   "presentationTip": "6319ada865597e09b3886def0f62ad2aad9fe752",
   "policy": "Presentation author AND committer dates are assigned dates with synthetic clock times, not verified historical development dates. Historical author dates and actual reconstruction committer times are in mapping.json and retained original history.",
-  "mappingSha256": "9699e916528b000a712f4eda593517c3a78a453302a8c772f32cbb243a485e69",
+  "mappingSha256": "9be650121c2990154330b49f29220a708af8c18b2bf48e6475fe3d57e8a1fd76",
   "backupBundle": "C:\\Users\\lakshitha madushan\\Desktop\\Applianceslk\\New\\backend-history-reconstruction-20261102\\original-all-refs.bundle",
   "publicationAuthorized": false,
-  "branchType": "historical reconstruction"
+  "originalCommitObjectsSha256": "f0dae235ad3437463aba8d36e74cb0266d9c9c3fc69e5cf9ce194be1ef1e31f3"
 }
