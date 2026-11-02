@@ -1,0 +1,10 @@
+{
+  "originalHead": "a925ca6d5d5f7d2d1a02f9814830146d46e2a129",
+  "originalTree": "b8a37c7ac003da78d42aeb0ae6016850bc18d6c9",
+  "historicalTip": "59371aa311d7223d7445339f7f46c74ca4f0f8ab",
+  "presentationTip": "6319ada865597e09b3886def0f62ad2aad9fe752",
+  "policy": "Presentation author AND committer dates are assigned dates with synthetic clock times, not verified historical development dates. Historical author dates and actual reconstruction committer times are in mapping.json and retained original history.",
+  "mappingSha256": "9699e916528b000a712f4eda593517c3a78a453302a8c772f32cbb243a485e69",
+  "backupBundle": "C:\\Users\\lakshitha madushan\\Desktop\\Applianceslk\\New\\backend-history-reconstruction-20261102\\original-all-refs.bundle",
+  "publicationAuthorized": false
+}
