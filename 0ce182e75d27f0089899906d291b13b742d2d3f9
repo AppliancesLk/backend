@@ -1,0 +1,23 @@
+{
+  "label": "USER-ASSIGNED PRESENTATION CREDITS; NOT VERIFIED HISTORICAL AUTHORSHIP",
+  "dates": "ASSIGNED PRESENTATION TIMESTAMPS; SYNTHETIC CLOCK TIMES; NOT VERIFIED HISTORICAL DEVELOPMENT DATES",
+  "userAuthorization": "User explicitly delegated deciding which Lakshitha work to transfer. Changes are assigned presentation credits, not independently verified historical authorship. Local only; no publish/develop replacement authorization for this revision.",
+  "base": "9f89b64069777ca57a3bc87e858d428de2a92386",
+  "tip": "a12fc9ed919273920996d0f4dcc58ad752b85199",
+  "tree": "b8a37c7ac003da78d42aeb0ae6016850bc18d6c9",
+  "mappingSha256": "0af06677b3c405a588091ade6be13cffb191c8800f305e233a2e8d2c3040c67a",
+  "published": false,
+  "previousSha": "d60ac533297e869e59678ec4595582554fcb74d0",
+  "originalSourceSha": "64719eb2d160a1e4f135655f4de368e457a7a103",
+  "recordedOriginalAuthor": {
+    "name": "buddhikamadumali",
+    "email": "buddhickamadumali4@gmail.com",
+    "date": "2026-10-19T21:55:45+05:30"
+  },
+  "assignedCredit": {
+    "name": "Buddhika Madumali",
+    "email": "buddhikamadumali4@gmail.com",
+    "date": "2026-10-19T21:55:45+05:30"
+  },
+  "reason": "Identity consolidation supported by original Buddhika author tuple and public PR 46/52 assignment; old identity retained in mapping."
+}
