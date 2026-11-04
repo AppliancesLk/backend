@@ -63,6 +63,7 @@ export class BannersController {
     return this.storage.read(
       filename,
       process.env.BANNER_UPLOAD_DIR ?? 'uploads/banners',
+      '/banners/images',
     );
   }
 }
